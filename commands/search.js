@@ -24,7 +24,7 @@ module.exports = {
       o.setName("provider")
         .setDescription("The search result provider (YouTube, YouTube Music or SoundCloud). Default: SoundCloud", "options.search.provider")
         .addChoices("yt", "ytm", "scld")
-        .setDefault("ytm")
+        .setDefault("scld")
         .addFlagAliases("p", "u", "use"), true)
     .addTextOption(o =>
       o.setName("query")
