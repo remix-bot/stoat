@@ -272,14 +272,16 @@ class RevoltPlayer extends EventEmitter {
 
     let loopqueue = (this.data.loop) ? "**enabled**" : "**disabled**";
     let songloop = (this.data.loopSong) ? "**enabled**" : "**disabled**";
+		const vol = ((this.connection?.preferredVolume || 1) * 100) + "%";
+		const paused = !!this.connection?.media.paused; // TODO: integrate
     if (this.data.current.type === "radio") {
       const data = await meta(this.data.current.url);
-      return { msg: "Streaming **[" + this.data.current.title + "](" + this.data.current.author.url + ")**\n\n" + this.data.current.description + " \n\n### Current song: " + data.title + "\n\nQueue loop: " + loopqueue + "\nSong loop: " + songloop, image: await this.uploadThumbnail()}
+      return { msg: "Streaming **[" + this.data.current.title + "](" + this.data.current.author.url + ")**\n\n" + this.data.current.description + " \n\n### Current song: " + data.title + "\n\nVolume: " + vol +  "\n\nQueue loop: " + loopqueue + "\nSong loop: " + songloop, image: await this.uploadThumbnail()}
     }
     if (this.data.current.type === "external") {
-      return { msg: "Playing **[" + this.data.current.title + "](" + this.data.current.url + ") by [" + this.data.current.artist + "](" + this.data.current.author.url + ")** \n\nQueue loop: " + loopqueue + "\nSong loop: " + songloop, image: await this.uploadThumbnail()}
+			return { msg: "Playing **[" + this.data.current.title + "](" + this.data.current.url + ") by [" + this.data.current.artist + "](" + this.data.current.author.url + ")** \n\nVolume: " + vol + "\n\nQueue loop: " + loopqueue + "\nSong loop: " + songloop, image: await this.uploadThumbnail()}
     }
-    return { msg: "Playing: **[" + this.data.current.title + "](" + this.data.current.url + ")** (" + this.getCurrentElapsedDuration() + "/" + this.getCurrentDuration() + ")" + "\n\nQueue loop: " + loopqueue + "\nSong loop: " + songloop, image: await this.uploadThumbnail() };
+		return { msg: "Playing: **[" + this.data.current.title + "](" + this.data.current.url + ")** (" + this.getCurrentElapsedDuration() + "/" + this.getCurrentDuration() + ")" + "\n\nVolume: " + vol + "\n\nQueue loop: " + loopqueue + "\nSong loop: " + songloop, image: await this.uploadThumbnail() };
   }
   uploadThumbnail() {
     return new Promise((res) => {
