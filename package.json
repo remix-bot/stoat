@@ -2,7 +2,7 @@
   "dependencies": {
     "@distube/ytdl-core": "^4.15.8",
     "@livekit/rtc-node": "^0.13.20",
-    "axios": "^1.12.2",
+    "axios": "^1.13.5",
     "bcrypt": "^5.1.0",
     "console-stamp": "^3.1.1",
     "cookie-parser": "^1.4.6",
