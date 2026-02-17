@@ -471,6 +471,17 @@ class Remix {
         return this.settingsMgr.getServer(d.data.channel.serverId).get("prefix");
     }
   }
+  checkVoiceChannels(message) {
+    if (!message) return null;
+    const user = message.authorId;
+    var id = null;
+    message.channel.server.channels.forEach((c) => {
+      if (!c.isVoice) return;
+      if (!c.voiceParticipants.has(user)) return;
+      id = c.id;
+    });
+    return id;
+  }
   getPlayer(message, promptJoin=true, verifyUser=true) {
     var askVC = (msg) => {
       return new Promise(res => {
@@ -551,7 +562,22 @@ class Remix {
       const user = this.revoice.getUser(message.authorId).user; // TODO: search through channels of server
       var cid = (user) ? user.connectedTo : null;
       if (message.channel.type === "Group") cid = message.channel.id;
+      if (!cid) {
+        cid = this.checkVoiceChannels(message);
+      }
       var player = this.playerMap.get(cid);
+      if (!player && cid) {
+        await (new Promise((r => {
+          this.joinChannel(message, cid, (p) => {
+            if (!p.connection.users.find(u => u.id == message.author.id)) {
+              message.reply(this.em("You don't seem to be connected to <#" + cid + ">. Did you forget to join?", message), true);
+            }
+            r(cid);
+          }, () => { message.reply("Something went wrong while trying to join your channel. Maybe try the join command manually.") });
+        })));
+        player = this.playerMap.get(cid);
+        return res(player);
+      }
       if (!((verifyUser) ? user : true) || !cid || !player) {
         if (!promptJoin) {
           message.reply(this.em(this.t("voice.join.error.dc", message), message), false);

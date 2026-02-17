@@ -85,10 +85,10 @@ module.exports = {
         .setType("voiceChannel")
         .setId("cid")
         .setDescription("Specify the channel, the bot should join. This is necessary due to (current) Revolt limitations.", "options.join.channel")
-        .setRequired(true)
+        .setRequired(false)
     ),
   run: function(message, data) {
-    const cid = data.getById("cid").value;
+    const cid = data.getById("cid").value || this.checkVoiceChannels(message);
     joinChannel.call(this, message, cid);
   },
   export: {
