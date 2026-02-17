@@ -9,11 +9,11 @@ if (!process.execArgv.includes("--inspect")) require('console-stamp')(console, '
 const YTDlpWrap = require("yt-dlp-wrap-extended").default;
 
 const Genius = require("genius-lyrics");
-const Spotify = require('spotifydl-core').default;
+const Spotify = require("spotifydl-core").default;
 
 let config;
 if (fs.existsSync("./config.json")) {
-  config = require("./config.json");
+    config = require("./config.json");
 } else {
   config = {
     token: process.env.TOKEN
@@ -225,6 +225,7 @@ class Remix {
             data.message.reply({ content: null, embeds: [this.embedify("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", "red")]});
           });
         }
+
         try {
           runFc.call(this, data.message, data);
         } catch(e) {

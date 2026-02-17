@@ -40,7 +40,7 @@ function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
       p.emit("userupdate", user, "leave");
       cbs.forEach(c => c.cb.call(this, "left", p));
     });
-  })
+  });
   p.on("message", (m) => {
     if ((this.getSettings(message).get("songAnnouncements")) == "false") return;
     message.channel.sendMessage(this.em(m, message))
