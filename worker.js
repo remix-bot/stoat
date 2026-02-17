@@ -1,11 +1,12 @@
-var { workerData, parentPort } = require('worker_threads');
+var { workerData, parentPort } = require("worker_threads");
 const EventEmitter = require("events");
-const yts = require('yt-search');
+const yts = require("yt-search");
 const Spotify = require("spotifydl-core").default;
 const scdl = require("soundcloud-downloader").default;
 const { Soundcloud } = require("soundcloud.ts");
-const YoutubeMusicApi = require('youtube-music-api-fix')
+const YoutubeMusicApi = require("youtube-music-api-fix");
 const meta = require("./src/probe.js");
+const { Innertube } = require("youtubei.js");
 
 if (!workerData && process.argv[2] !== "dev") {
   console.log("Worker data shouldn't be empty!");
@@ -67,7 +68,7 @@ class YTUtils extends EventEmitter {
   constructor(spotify) {
     super();
 
-    this.spotifyClient = null
+    this.spotifyClient = null;
     this.spotifyConfig = spotify;
     this.ytApi = null;
     this.cEngine = new CompoundSearchEngine();
@@ -77,7 +78,7 @@ class YTUtils extends EventEmitter {
   }
   get api() {
     this.ytApi ||= new YoutubeMusicApi();
-    return this.ytApi
+    return this.ytApi;
   }
   get spotify() {
     this.spotifyClient ||= new Spotify(this.spotifyConfig);
@@ -85,6 +86,7 @@ class YTUtils extends EventEmitter {
   }
   init() {
     if (Object.keys(this.api.ytcfg).length > 0) return true; // already initalized
+    //this.ytClient = await Innertube.create();
     return this.api.initalize();
   }
   error(data) {
@@ -103,7 +105,7 @@ class YTUtils extends EventEmitter {
       let nt = Math.floor(t / 60);
       curr.push(p(nt));
       return f(nt, curr);
-    }
+    };
     return f(mins) + ":" + p(secs);
   }
 
@@ -132,7 +134,7 @@ class YTUtils extends EventEmitter {
         var videos = (await yts(query)).videos;
         videos = videos.slice(0, Math.min(limit, videos.length));
         return {
-          data: videos
+          data: videos,
         };
       case "ytm":
         await this.init();
@@ -148,15 +150,15 @@ class YTUtils extends EventEmitter {
           return r;
         }).slice(0, Math.min(limit, results.length));
         return {
-          data: results
-        }
+          data: results,
+        };
         break;
       case "scld":
-        var tracks = (await this.getSoundCloudTracks(query));
-        tracks = tracks.slice(0, Math.min(limit, tracks.length));;
+        var tracks = await this.getSoundCloudTracks(query);
+        tracks = tracks.slice(0, Math.min(limit, tracks.length));
         return {
-          data: tracks
-        }
+          data: tracks,
+        };
     }
   }
   async getSoundCloudTracks(query) {
@@ -171,8 +173,8 @@ class YTUtils extends EventEmitter {
           url: res.user.permalink_url
         }],
         duration: res.duration,
-        type: "soundcloud"
-      }
+        type: "soundcloud",
+      };
       return r;
     });
     return tracks;
@@ -221,7 +223,7 @@ class YTUtils extends EventEmitter {
     });
   }
   getSpotifyPlaylist(id) {
-    return this.getSpotifyAlbum(id, "playlist")
+    return this.getSpotifyAlbum(id, "playlist");
   }
   async getByQuery(query, provider) { // either yt or ytm
     this.emit("message", "Searching...");
@@ -234,9 +236,11 @@ class YTUtils extends EventEmitter {
       r.title = song.name;
       r.url = `https://music.youtube.com/watch?v=${song.videoId}`;
       r.thumbnail = (Array.from(song.thumbnails).sort((a, b) => b.width - a.width)[0] || {}).url;
-      r.artists = ((Array.isArray(song.artist)) ?Array.from(song.artist) : [song.artist]).map(a => (a.url = `https://music.youtube.com/channel/${a.browseId}`, a))
-      this.emit("message",  `Successfully added [${r.title}](${r.url}) to the queue.`)
-      return { type: "video", data: r };
+      r.artists = ((Array.isArray(song.artist)) ? Array.from(song.artist) : [song.artist]).map(a => (a.url = `https://music.youtube.com/channel/${a.browseId}`, a))
+      // this hurts, but it's supposed to be a band-aid-fix
+      return this.getByQuery(this.cleanTitle(r.title) + " " + (r?.artists[0]?.name || ""), "scld");
+      this.emit("message", `Successfully added [${r.title}](${r.url}) to the queue.`)
+      //return { type: "video", data: r };
     } else if (provider === "scld") {
       const song = await this.getSoundCloudResult(query);
       if (!song) { this.emit("message", "**There was an error loading the soundcloud song using the query '" + query + "'!**"); return false; }
@@ -244,9 +248,26 @@ class YTUtils extends EventEmitter {
       return { type: "video", data: song };
     }
     let video = await this.search(query);
-    if (video) { this.emit("message", `Successfully added [${video.title}](${video.url}) to the queue.`); } else { this.emit("message", "**There was an error loading a youtube video using the query '" + query + "'!**") };
     if (!video) return false;
+    // this hurts equally
+    return this.getByQuery(this.cleanTitle(video.title) + " " + (video?.author.name || ""), "scld");
+    if (video) { this.emit("message", `Successfully added [${video.title}](${video.url}) to the queue.`); } else { this.emit("message", "**There was an error loading a youtube video using the query '" + query + "'!**") };
     return { type: "video", data: video };
+  }
+  cleanTitle(title) {
+    const term = "official music video";
+    const idx = title.toLowerCase().indexOf(term);
+    if (idx === -1) return title;
+
+    var end = idx + term.length - 1;
+    var start = idx;
+    while (start > 0 && title.charAt(start - 1) != " ") {
+      start--;
+    }
+    while (end < (title.length - 1) && title.charAt(end + 1) != " ") {
+      end++;
+    }
+    return title.substring(0, start) + title.substring(end + 1);
   }
   async getById(parsedId, live) {
     this.emit("message", "Loading video data...");
@@ -257,9 +278,11 @@ class YTUtils extends EventEmitter {
       video.duration.timestamp = "live";
       video.url = "https://youtube.com/live/" + parsedId;
     }
-    return { type: "video", data: video };
+    // " " + (video?.author.name || "") // might improve results
+    return await this.getByQuery(this.cleanTitle(video.title) + " " + (video?.author.name || ""), "scld");
+    //return { type: "video", data: video };
   }
-  async getBySpotifyId(id){
+  async getBySpotifyId(id) {
     this.emit("message", "Loading video data...");
     let song = await this.spotify.getTrack("https://open.spotify.com/track/" + id);
     this.emit("message", "Resolving Spotify track in Youtube.");
@@ -279,8 +302,8 @@ class YTUtils extends EventEmitter {
     });
   }
   unknownMedia(url) {
-    return new Promise(async res => {
-      const fileName = new URL(url).pathname.split('/').pop();
+    return new Promise(async (res) => {
+      const fileName = new URL(url).pathname.split("/").pop();
       this.emit("message", "Fetching meta data...");
 
       const data = await meta(url);
@@ -293,8 +316,8 @@ class YTUtils extends EventEmitter {
       data.type = "external";
       data.author = {
         name: data.artist,
-        url: "#"
-      }
+        url: "#",
+      };
 
       this.emit("message", `Added [${data.title}](${data.url}) to the queue.`);
       res({ type: "video", data: data });
@@ -325,7 +348,7 @@ class YTUtils extends EventEmitter {
     return await this.getById(parsed);
   }
   async search(string, id) {
-    return (id) ? await yts({ videoId: string }) : (await yts(string)).videos[0];
+    return id ? await yts({ videoId: string }) : (await yts(string)).videos[0];
   }
   async fetchPlaylist(id) {
     return (await yts({ listId: id })).videos;
@@ -357,7 +380,7 @@ class YTUtils extends EventEmitter {
     const data = this.parseScdlInput(query);
 
     this.emit("message", "Loading SoundCloud info...");
-    const info = await scdl.getInfo(data.url)
+    const info = await scdl.getInfo(data.url);
     this.emit("message", "Successfully added to queue.");
     return {
       type: "video",
@@ -366,7 +389,7 @@ class YTUtils extends EventEmitter {
         url: data.url,
         thumbnail: info.artwork_url,
         duration: {
-          timestamp: this.prettifyTimestamp(info.full_duration)
+          timestamp: this.prettifyTimestamp(info.full_duration),
         },
         title: info.title,
         author: {
@@ -383,39 +406,63 @@ const data = workerData.data;
 const utils = new YTUtils(data.spotify);
 //utils.compoundSearch("thefatrat escaping gravity")
 utils.on("message", (content) => {
+  if (jobId === "dev") {
+    console.log("[Message] " + content);
+    return;
+  }
   post("message", content);
 });
 utils.on("error", (msg) => {
+  if (jobId === "dev") {
+    console.log("[Error] " + content);
+    return;
+  }
   post("error", msg);
 });
 
 const post = (event, data) => {
   return parentPort.postMessage(JSON.stringify({ event: event, data: data }));
-}
+};
 
 (async () => {
   if (jobId === "dev") {
-    const scld = new Soundcloud();
+    /*const scld = new Soundcloud();
     (async () => {
       console.log((await scld.tracks.search({ q: "neoni notorious" })).collection[0]);
-    })()
-    return;
+      })()*/
+    /*const innertube = Innertube.create();
+    const music = (await innertube).music;
+    const search = await music.search("Neoni notorious");
+    console.log(search);
+    const songs = search.songs;
+    console.log(songs);
+    const contents = search.contents;
+    contents.forEach((e) => {
+      if (!e.on_tap) return;
+      if (!e.on_tap.payload) return;
+      console.log(e.on_tap.payload.videoId);
+    })
+    return;*/
+    const yt = "https://www.youtube.com/watch?v=XZhNVSEgx5E";
+    const ytm = "https://music.youtube.com/watch?v=XLIhKFz6i_s";
+    //console.log(await utils.getVideoData(yt, "scld"))
+    console.log(await utils.getVideoData("Neoni funeral", "ytm"))
   }
 
   var r = null;
-  switch(jobId) {
+  switch (jobId) {
     case "search":
       let result = await utils.search(data, true);
       post("finished", result);
-    break;
+      break;
     case "generalQuery":
-      r = (await utils.getVideoData(data.query, data.provider));
+      r = await utils.getVideoData(data.query, data.provider);
       post("finished", r);
-    break;
+      break;
     case "searchResults":
       r = await utils.getResults(data.query, data.resultCount, data.provider);
       post("finished", r);
-    break;
+      break;
     default:
       console.log("Invalid jobId");
       process.exit(0);

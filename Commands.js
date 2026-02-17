@@ -250,7 +250,7 @@ class Option {
             && (msg.channel)
               ? (c.serverId == msg.channel.serverId || c.serverId == "eval") // eval is a dry-run conducted to check the syntax of a channel
               : false);
-        
+
         const cObj = (results) ? client.channels.get(results.groups["id"]) : (channel) ? channel : null;
         return (cObj) ? cObj.isVoice || cObj.type === "Group" : null;
       // TODO: Add roles
@@ -767,7 +767,7 @@ class CommandHandler extends EventEmitter {
       form += "Tip: Use the arrows beneath this message to turn pages, or specify the required page by using `$prefix$helpCmd <page number>`";
 
       const contents = cmds.map((cmd, i) => {
-        return (i + 1) + ". **" + cmd.name + "**: " + this.getDescription(cmd, message);
+        return (i + 1) + ". **" + cmd.name + "**: " + this.getDescription(cmd, message).split("\n")[0];
       });
 
       this.paginationHandler(message, this.f(form), contents);
@@ -810,7 +810,7 @@ class CommandHandler extends EventEmitter {
     if (cmd.subcommands.length > 0) {
       content += "#### Subcommands: \n";
       cmd.subcommands.forEach(s => {
-        content += "- " + s.name + ": " + this.getDescription(s, msg) + ((s.options.length > 0) ? "; (`" + s.options.length + " option(s)`)" : "") + "\n";
+        content += "- " + s.name + ": " + this.getDescription(s, msg).split("\n")[0] + ((s.options.length > 0) ? "; (`" + s.options.length + " option(s)`)" : "") + "\n";
       });
       content += "\n";
     } else if (cmd.options.length > 0) {
@@ -821,9 +821,9 @@ class CommandHandler extends EventEmitter {
         const optional = ((o.required) ? "" : "?");
         const flag = (o instanceof Flag) ? "-" : "";
         if (o.type == "choice") {
-          content += "- **" + flag + o.name + "**" + optional + ": " + this.getDescription(o, msg) + ";\n  - Allowed values: `" + o.choices.join("`, `") + "`\n  - Aliases: `" + o.aliases.join("`, `") + "`\n";
+          content += "- **" + flag + o.name + "**" + optional + ": " + this.getDescription(o, msg).split("\n")[0] + ";\n  - Allowed values: `" + o.choices.join("`, `") + "`\n  - Aliases: `" + o.aliases.join("`, `") + "`\n";
         } else {
-          content += "- **" + flag + o.name + "**" + optional + ": " + this.getDescription(o, msg) + "\n  - Aliases: `" + o.aliases.join("`, `") + "`\n";
+          content += "- **" + flag + o.name + "**" + optional + ": " + this.getDescription(o, msg).split("\n")[0] + "\n  - Aliases: `" + o.aliases.join("`, `") + "`\n";
         }
         content += "\n";
       });

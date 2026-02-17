@@ -41,6 +41,7 @@
   },
   "rbl": "Your token for revoltbots.org; optional",
   "webPort": 80,
+  "dashboardUrl": "The url the dashboard is accessible with.",
   "ssl": {
     "private": "path-to-private-key.pem",
     "cert": "path-to-certificate.pem",
