@@ -22,7 +22,12 @@ if (fs.existsSync("./config.json")) {
 
 class Remix {
   constructor() {
-    this.client = new Client(config["revolt.js"]);
+    this.client = new Client({
+      ...config["revolt.js"],
+      autoReconnect: true,
+      api_url: "https://api.stoat.chat/0.8",
+      heartbeatInterval: 45000
+    });
     this.client.config = config;
     this.config = config;
     this.modules = require("./storage/modules.json");
@@ -786,13 +791,7 @@ class Remix {
     const pref = this.handler.getPrefix(msg.channel.serverId);
     const categories = [{ // TODO: improve this text
       reaction: "🏠",
-      content: [`# Home\n\n \
-      Welcome to the Remix help page.
-      Remix is Stoat's first open-source music bot. It supports a variety of streaming services and has many features, \
-      with one of the newest being the [Web Dashboard](https://remix.fairway.cl/).\n\n \
-      We hope you enjoy using Remix!\n\n \
-      To get started, just click on the reactions below to find more about the commands.
-      In the case that reactions don't work for you, there's also the possibility to look through them by using \`${pref}help <page number>\` :)`],
+      content: [`# Home\n\nWelcome to the Remix help page.\n\nRemix is Stoat's first open-source music bot. It supports a variety of streaming services and has many features, with one of the newest being the [Web Dashboard](https://remix.fairuse.org/).\n\nWe hope you enjoy using Remix!\n\nTo get started, just click on the reactions below to find out more about the commands. In the case that reactions don't work for you, there's also the possibility to look through them by using \`${pref}help <page number>\` :)`],
       form: "$content\n\n###### Page $currPage/$maxPage",
       title: "Home Page"
     }, {
