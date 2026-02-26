@@ -787,7 +787,7 @@ class Remix {
     const categories = [{ // TODO: improve this text
       reaction: "🏠",
       content: [`# Home\n\n \
-      Welcome to Remix help page.
+      Welcome to Remix help.
       Remix is Stoat's first open-source music bot. It supports a variety of streaming services and has many features, \
       with one of the newest being the [Web Dashboard](https://remix.fairway.cl/).\n\n \
       We hope you enjoy using Remix!\n\n \
