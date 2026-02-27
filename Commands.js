@@ -328,7 +328,6 @@ class Flag extends Option {
 
 class CommandHandler extends EventEmitter {
   customPrefixes = new Map();
-  cachedGuilds = [];
   parentCallback = null;
   onPing = null;
   pingPrefix = true;
@@ -352,7 +351,7 @@ class CommandHandler extends EventEmitter {
     this.helpCommand = "help";
     this.commandNames = [];
     this.commands = [];
-
+    this.cachedGuilds = client.cachedGuilds
     this.fixMap = new Map(); // typo corrections
 
     this.minMatchScore = 0.75;
@@ -409,12 +408,10 @@ class CommandHandler extends EventEmitter {
   }
   messageHandler(msg) {
     if (!msg || !msg.content) return;
-    if (!this.cachedGuilds.includes(msg.channel.serverId)) {
-      this.cachedGuilds.push(msg.channel.serverId);
-      let cp = this.request("prefix", msg);
-      if (cp !== this.prefix) {
-        this.customPrefixes.set(msg.channel.serverId, cp);
-      }
+
+    let cp = this.request("prefix", msg);
+    if (cp !== this.prefix) {
+      this.customPrefixes.set(msg.channel.serverId, cp);
     }
     if (msg.mentionIds) {
       if (msg.mentionIds.includes(this.client.user.id) && msg.content.trim().toUpperCase() == `<@${this.client.user.id}>`) {
