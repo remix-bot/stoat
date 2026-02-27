@@ -29,6 +29,16 @@
   "radio": [
 
   ],
+  "cache": {
+    "guilds": { 
+      "enabled": true,
+      "max": 5000
+    },
+    "members": {
+      "enabled": true,
+      "max": 10000
+    }
+  },
   "helpCatalog": true,
   "helpPagination": true,
   "mapMembers": true,

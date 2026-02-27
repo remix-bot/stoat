@@ -328,7 +328,7 @@ class Flag extends Option {
 
 class CommandHandler extends EventEmitter {
   customPrefixes = new Map();
-  cachedGuilds = [];
+  //cachedGuilds = [];
   parentCallback = null;
   onPing = null;
   pingPrefix = true;
@@ -352,7 +352,8 @@ class CommandHandler extends EventEmitter {
     this.helpCommand = "help";
     this.commandNames = [];
     this.commands = [];
-
+    
+    this.cachedGuilds = client.cachedGuilds
     this.fixMap = new Map(); // typo corrections
 
     this.minMatchScore = 0.75;
@@ -370,8 +371,7 @@ class CommandHandler extends EventEmitter {
   }
   getPrefix(guildId) {
     if (!guildId) return this.prefix;
-    if (!this.cachedGuilds.includes(guildId)) return this.prefix;
-    if (!this.customPrefixes.has(guildId)) return this.prefix;
+    if (!this.customPrefixes.has(guildId)) return this.prefix;  // just check customPrefixes directly
     return this.customPrefixes.get(guildId);
   }
   checkPermissions(message) {
@@ -409,12 +409,9 @@ class CommandHandler extends EventEmitter {
   }
   messageHandler(msg) {
     if (!msg || !msg.content) return;
-    if (!this.cachedGuilds.includes(msg.channel.serverId)) {
-      this.cachedGuilds.push(msg.channel.serverId);
-      let cp = this.request("prefix", msg);
-      if (cp !== this.prefix) {
-        this.customPrefixes.set(msg.channel.serverId, cp);
-      }
+    let cp = this.request("prefix", msg);
+    if (cp !== this.prefix) {
+      this.customPrefixes.set(msg.channel.serverId, cp);
     }
     if (msg.mentionIds) {
       if (msg.mentionIds.includes(this.client.user.id) && msg.content.trim().toUpperCase() == `<@${this.client.user.id}>`) {
@@ -536,9 +533,7 @@ class CommandHandler extends EventEmitter {
     this.customHelp = bool;
   }
   setCustomPrefix(guildId, p) {
-    //if (p == this.prefix) return; // comment because this prevents resetting of the prefix
-    if (!this.cachedGuilds.includes(guildId)) this.cachedGuilds.push(guildId);
-    this.customPrefixes.set(guildId, p);
+    this.customPrefixes.set(guildId, p);  // cachedGuilds check removed, customPrefixes handles it
   }
   setOnPing(cb) {
     this.onPing = cb;

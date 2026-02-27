@@ -13,7 +13,7 @@ const Spotify = require("spotifydl-core").default;
 
 let config;
 if (fs.existsSync("./config.json")) {
-    config = require("./config.json");
+  config = require("./config.json");
 } else {
   config = {
     token: process.env.TOKEN
@@ -37,7 +37,7 @@ class Remix {
 
     this.memberMap = new Map();
     this.userCache = []
-
+    this.cachedGuilds = []
     this.observedUsers = new Map();
     this.observedReactions = new Map();
 
@@ -83,17 +83,20 @@ class Remix {
       const mod = { instance: new (require(m.index))(this), c: require(m.index) };
       this.loadedModules.set(m.name, mod);
     });
-    console.log(`Loaded ${this.loadedModules.size} module(s): ${Array.from(this.loadedModules).map(m=>m[0]).join(", ")}`)
+    console.log(`Loaded ${this.loadedModules.size} module(s): ${Array.from(this.loadedModules).map(m => m[0]).join(", ")}`)
 
     this.stats = require("./storage/stats.json");
+    this.client.cachedGuilds = this.cachedGuilds
 
     var reconnects = [];
     this.client.on("ready", () => {
       const t = Date.now();
-      reconnects.push({ time: t, timeout: setTimeout(() => {
-        const idx = reconnects.find(e => e.time == t);
-        reconnects.splice(idx, 1);
-      }, 20000)})
+      reconnects.push({
+        time: t, timeout: setTimeout(() => {
+          const idx = reconnects.find(e => e.time == t);
+          reconnects.splice(idx, 1);
+        }, 20000)
+      })
       if (reconnects.length > 3) {
         console.log("Too many reconnects. Restarting.");
         reconnects = [];
@@ -121,7 +124,7 @@ class Remix {
             presence: this.presence
           },
         });
-        if (state == texts.length - 1) {state = 0} else {state++}
+        if (state == texts.length - 1) { state = 0 } else { state++ }
       }, this.presenceInterval);
 
       if (!this.config.fetchUsers) return;
@@ -129,9 +132,15 @@ class Remix {
       // future me here: most likely caching. This shouldn't be the reason for rate limits.
       setInterval(() => this.fetchUsers, 60 * 1000 * 30);
 
-      //this.mapMembers().then(() => {}); // not needed anymore
     });
     this.client.on("messageCreate", (m) => {
+      if (!this.cachedGuilds.includes(m.channel.serverId) && config.cache.guilds.enabled) {
+        if (this.cachedGuilds.length > config.cache.guilds.max) this.cachedGuilds.shift()
+        if (!this.cachedGuilds[m.channel.serverId]) this.cachedGuilds.push(m.channel.serverId);
+      }
+      if ((config?.cache.members.enabled) && this.userCache > (config?.cache.members.max ?? 10000)) this.userCache.shift()
+      const dupCheck = this.userCache.find(user => m.authorId == user.id)
+      if (!dupCheck) this.userCache.push({ id: m.authorId, name: m.author.username, discrm: m.author.discriminator })
       if (!this.observedUsers.has(m.authorId + ";" + m.channelId)) return;
       this.observedUsers.get(m.authorId + ";" + m.channelId)(m);
     });
@@ -146,22 +155,7 @@ class Remix {
     }
     this.client.on("messageReactionAdd", reactionUpdate);
     this.client.on("messageReactionRemove", reactionUpdate);
-    this.client.on("serverMemberJoin", (member) => { // TODO: test
-      const data = this.memberMap.get(member.server.id);
-      if (!data) return;
-      data.push(member.id.user);
-      this.memberMap.set(member.server.id, data);
 
-      const user = member.user;
-      if (this.userCache.findIndex(e => e.id === user.id) !== -1) return;
-      this.userCache.push({ id: user.id, name: user.username, discrim: user.discriminator})
-    });
-    this.client.on("serverCreate", (server) => {
-      console.log("Mapping " + server.id);
-      server.fetchMembers().then(members => {
-        this.#mapServer(members);
-      });
-    });
     this.client.on("serverDelete", (server) => { // TODO: update to serverLeave and serverDelete once rjs implements it
       if (!this.memberMap.has(server.id)) return;
       console.log("Deleting " + server.id);
@@ -185,7 +179,7 @@ class Remix {
     this.handler.setRequestCallback((...data) => this.request(...data));
     this.handler.setOnPing(msg => {
       let pref = this.handler.getPrefix(msg.channel.serverId);
-      let m = this.iconem(msg.channel.server.name, this.t("commands.ping", msg, {prefix: "`" + pref + "`", helpCmd: "`" + pref + "help`"}), (msg.channel.server.icon) ? "https://autumn.revolt.chat/icons/" + msg.channel.server.icon._id : null, msg);
+      let m = this.iconem(msg.channel.server.name, this.t("commands.ping", msg, { prefix: "`" + pref + "`", helpCmd: "`" + pref + "help`" }), (msg.channel.server.icon) ? "https://autumn.revolt.chat/icons/" + msg.channel.server.icon._id : null, msg);
       msg.reply(m, false)
     });
     this.handler.setPaginationHandler((message, form, contents) => {
@@ -227,23 +221,23 @@ class Remix {
           return runFc.call(this, data.message, data).catch(e => {
             const id = this.guid();
             console.log("Error running command; error id #" + id, e);
-            data.message.reply({ content: null, embeds: [this.embedify("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", "red")]});
+            data.message.reply({ content: null, embeds: [this.embedify("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", "red")] });
           });
         }
 
         try {
           runFc.call(this, data.message, data);
-        } catch(e) {
+        } catch (e) {
           const id = this.guid();
           console.log("Error running command; error id #" + id, e);
-          data.message.reply({ content: null, embeds: [this.embedify("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", "red")]});
+          data.message.reply({ content: null, embeds: [this.embedify("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", "red")] });
         }
       }
     });
     console.log("Done!\n");
 
     if (process.argv[2] == "usage") {
-      fs.writeFile("cmdUsage.md", this.handler.generateCommandOverviewMD(),()=>{ console.log("Done!"); process.exit(1) });
+      fs.writeFile("cmdUsage.md", this.handler.generateCommandOverviewMD(), () => { console.log("Done!"); process.exit(1) });
     } else if (process.argv[2] == "sreload") {
       this.settingsMgr.syncDefaults(); // updates all guilds if they are missing defaults
       this.settingsMgr.save();
@@ -266,12 +260,12 @@ class Remix {
 
     try {
       this.comHash = require('child_process')
-          .execSync('git rev-parse --short HEAD', {cwd: __dirname})
-          .toString().trim();
+        .execSync('git rev-parse --short HEAD', { cwd: __dirname })
+        .toString().trim();
       this.comHashLong = require('child_process')
-          .execSync('git rev-parse HEAD', {cwd: __dirname})
-          .toString().trim();
-    } catch(e) {
+        .execSync('git rev-parse HEAD', { cwd: __dirname })
+        .toString().trim();
+    } catch (e) {
       console.log("Git comhash error");
       this.comHash = "Newest";
       this.comHashLong = null;
@@ -290,7 +284,7 @@ class Remix {
     }
 
     Object.defineProperty(this.client, "allServers", {
-      get: function() {
+      get: function () {
         var servers = [];
         var iterator = this.servers.entries();
         for (let v = iterator.next(); !v.done; v = iterator.next()) {
@@ -314,18 +308,6 @@ class Remix {
     await Promise.allSettled(promises);
     console.log(this.client.users.size);
   }
-  #mapServer(members) {
-    if (!members) return;
-    const users = members.users;
-    members = members.members;
-    const server = members[0].server.id;
-    members = members.map(m => m.id.user);
-    this.memberMap.set(server, members);
-    users.forEach(user => {
-      if (this.userCache.findIndex(e => e.id === user.id) !== -1) return;
-      this.userCache.push({ id: user.id, name: user.username, discrim: user.discriminator})
-    });
-  }
 
   util = { // required as a property to be copied into the context in the eval command by object.assign
     mapToArray(map) {
@@ -338,70 +320,18 @@ class Remix {
 
       return arr;
     },
-    connectionsByType: function(connections) {
+    connectionsByType: function (connections) {
       this.mapToArray(connections).map(e => e[1] = e[1][0]);
     }
   }
 
   guid() {
-    var S4 = function() {
-       return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+    var S4 = function () {
+      return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
     };
-    return (S4()+S4()+"-"+S4()+"-"+S4()+"-"+S4()+"-"+S4()+S4()+S4());
+    return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
   }
 
-  mapMembers() {
-    return new Promise(async res => {
-      if (!this.config.mapMembers) return res();
-      const evaluate = (data) => {
-        data = data.map(v => v.value);
-        data.forEach(members => {
-          this.#mapServer(members);
-        });
-      }
-
-      const promises = [];
-      const servers = this.client.allServers;
-      console.log("Started mapping server members");
-      for (let i = 0; i < servers.length; i++) {
-        if (i % 30 === 0 && i !== 0) {
-          evaluate(await Promise.allSettled(promises));
-          console.log("Mapped " + Math.round((i / servers.length * 100)) + "%")
-          promises.length = 0;
-          await Remix.sleep(1200);
-        }
-        promises.push(servers[i].fetchMembers());
-      }
-      if (promises.length !== 0) evaluate(await Promise.allSettled(promises));
-      console.log("Finished mapping server members!");
-      /*await Remix.sleep(5000);
-      console.log("Started mapping discriminators");
-      promises.length = 0; // clear array
-      const mapUsers = async (p) => { // run in async scope
-        p = p.map(v => v.value);
-        if (!p) return;
-        p.forEach(u => {
-          const idx = this.userCache.findIndex(e => e.id == u._id);
-          if (idx === -1) throw "Impossible case detected";
-          this.userCache[idx].discrim = u.discriminator;
-          this.userCache[idx].displayName = u.display_name;
-        });
-      }
-      for (let i = 0; i < this.userCache.length; i++) {
-        if (i % 18 === 0 && i !== 0) {
-          mapUsers(await Promise.allSettled(promises));
-          console.log("Mapped " + Math.round((i / this.userCache.length * 100)) + "%");
-          promises.length = 0;
-          await Remix.sleep(10000);
-        }
-        if (this.userCache[i].discrim) continue;
-        promises.push(this.client.api.get("/users/" + this.userCache[i].id))
-      }
-      if (promises.length !== 0) mapUsers(await Promise.allSettled(promises));
-      console.log("Finished discriminator mapping");*/
-      res();
-    });
-  }
   mutualServers(user) {
     const iterator = this.memberMap.entries();
     const mutual = [];
@@ -420,7 +350,7 @@ class Remix {
         const icon = () => {
           try {
             return server.animatedIconURL || server.iconURL || null
-          } catch(e) {
+          } catch (e) {
             return null;
           }
         }
@@ -471,7 +401,7 @@ class Remix {
     });
   }
   request(d) {
-    switch(d.type) {
+    switch (d.type) {
       case "prefix":
         return this.settingsMgr.getServer(d.data.channel.serverId).get("prefix");
     }
@@ -487,7 +417,7 @@ class Remix {
     });
     return id;
   }
-  getPlayer(message, promptJoin=true, verifyUser=true) {
+  getPlayer(message, promptJoin = true, verifyUser = true) {
     var askVC = (msg) => {
       return new Promise(res => {
         if (msg.channel.type === "Group") {
@@ -534,7 +464,7 @@ class Remix {
                 msg.reply(this.em(this.t("voice.join.warning.nc", m, {channel: "<#" + c.id + ">"}), msg), true);
               );*/
               res(c.id);
-            }, () => { m.edit(this.em(this.t("voice.join.error.perms", m, {channel: "<#" + c.id + ">"}), m)); return res(false); });
+            }, () => { m.edit(this.em(this.t("voice.join.error.perms", m, { channel: "<#" + c.id + ">" }), m)); return res(false); });
 
             this.unobserveUser(observer);
             this.unobserveReactions(roid);
@@ -599,7 +529,7 @@ class Remix {
   observeUserVoice(user, cb) {
     const cid = Math.random();
     const arr = (this.observedVoiceUsers.get(user) || []);
-    arr.push({ cid, cb});
+    arr.push({ cid, cb });
     this.observedVoiceUsers.set(user, arr);
     return user + ";" + cid;
   }
@@ -640,12 +570,12 @@ class Remix {
     return this.observedReactions.delete(i);
   }
 
-  paginate(text, maxLinesPerPage=5, page=0) {
+  paginate(text, maxLinesPerPage = 5, page = 0) {
     page -= 1;
     const lines = text.split("\n");
     return lines.slice(maxLinesPerPage * page, maxLinesPerPage * page + maxLinesPerPage);
   }
-  pages(text, maxLinesPerPage=2) {
+  pages(text, maxLinesPerPage = 2) {
     const lines = (Array.isArray(text)) ? text : text.split("\n");
     const pages = [];
     for (let i = 0, n = 0; i < lines.length; i++, (i % maxLinesPerPage == 0) ? n++ : n) {
@@ -655,14 +585,14 @@ class Remix {
     }
     return pages;
   }
-  pagination(form, content, message, maxLinesPerPage=2) {
+  pagination(form, content, message, maxLinesPerPage = 2) {
     if (!message.channel.havePermission("React")) {
       if (!message.channel.havePermission("SendMessage")) return message.member.user.openDM().then(dm => {
-        dm.sendMessage({ content: " ", embeds: [this.embedify("I am unable to send messages in <#" + message.channelId + ">. Please contact a server administrator and grant me the \"SendMessage\" permission.")]})
-      }).catch(() => {});
+        dm.sendMessage({ content: " ", embeds: [this.embedify("I am unable to send messages in <#" + message.channelId + ">. Please contact a server administrator and grant me the \"SendMessage\" permission.")] })
+      }).catch(() => { });
       return message.reply({ content: " ", embeds: [this.embedify("I need reaction permissions to work. Please contact a server administrator to address this.")] }, true);
     }
-    const arrows = [ "⬅️", "➡️" ];
+    const arrows = ["⬅️", "➡️"];
     var page = 0;
     const paginated = this.pages(content, maxLinesPerPage);
     form = form.replace(/\$maxPage/gi, paginated.length);
@@ -694,21 +624,21 @@ class Remix {
         const c = paginated[page].join("\n");
         ms.edit(messageFormatter(c));
         clearTimeout(currTime);
-        currTime = setTimeout(() => { finish() }, 60*1000);
+        currTime = setTimeout(() => { finish() }, 60 * 1000);
       });
       const finish = () => {
         this.unobserveReactions(oid);
         m.edit({
           content: this.t("pagination.embed.sclosedTitle", m),
           embeds: [
-            this.embedify(this.t("pagination.embed.sclosedContent", m, { content: lastEmbed.description, interpolation: { escapeValue: false }}), "red")
+            this.embedify(this.t("pagination.embed.sclosedContent", m, { content: lastEmbed.description, interpolation: { escapeValue: false } }), "red")
           ]
         });
       }
-      var currTime = setTimeout(() => { finish() }, 60*1000);
+      var currTime = setTimeout(() => { finish() }, 60 * 1000);
     });
   }
-  reactionCollector(msg, reactions, onReaction=()=>{}, time=60*1000, finishCb=()=>{}) {
+  reactionCollector(msg, reactions, onReaction = () => { }, time = 60 * 1000, finishCb = () => { }) {
     var timer = setTimeout(() => finish(), time);
     const oid = this.observeReactions(msg, reactions, (e, msg) => {
       onReaction(e, msg);
@@ -720,7 +650,7 @@ class Remix {
       finishCb();
     }
   }
-  catalog(msg, categories, defaultPage=0, maxLinesPerPage) {
+  catalog(msg, categories, defaultPage = 0, maxLinesPerPage) {
     const reactions = categories.map(c => c.reaction);
     const pages = categories.map(c => this.pages(c.content, maxLinesPerPage));
     const forms = categories.map(c => c.form);
@@ -766,11 +696,11 @@ class Remix {
         currCat = i;
         currPage = 0;
         m.edit(messageFormatter(pages[i][0].join("\n")));
-      }, 60*1000, () => {
+      }, 60 * 1000, () => {
         m.edit({
           content: this.t("pagination.embed.sclosedTitle", m),
           embeds: [
-            this.embedify(this.t("pagination.embed.sclosedContent", m, { content: lastEmbed.description, interpolation: { escapeValue: false }}), "red")
+            this.embedify(this.t("pagination.embed.sclosedContent", m, { content: lastEmbed.description, interpolation: { escapeValue: false } }), "red")
           ]
         });
       });
@@ -860,15 +790,15 @@ class Remix {
   prettifyMS(milliseconds) {
     const roundTowardsZero = milliseconds > 0 ? Math.floor : Math.ceil;
 
-  	const parsed = {
-  		days: roundTowardsZero(milliseconds / 86400000),
-  		hours: roundTowardsZero(milliseconds / 3600000) % 24,
-  		minutes: roundTowardsZero(milliseconds / 60000) % 60,
-  		seconds: roundTowardsZero(milliseconds / 1000) % 60,
-  		milliseconds: roundTowardsZero(milliseconds) % 1000,
-  		microseconds: roundTowardsZero(milliseconds * 1000) % 1000,
-  		nanoseconds: roundTowardsZero(milliseconds * 1e6) % 1000
-  	};
+    const parsed = {
+      days: roundTowardsZero(milliseconds / 86400000),
+      hours: roundTowardsZero(milliseconds / 3600000) % 24,
+      minutes: roundTowardsZero(milliseconds / 60000) % 60,
+      seconds: roundTowardsZero(milliseconds / 1000) % 60,
+      milliseconds: roundTowardsZero(milliseconds) % 1000,
+      microseconds: roundTowardsZero(milliseconds * 1000) % 1000,
+      nanoseconds: roundTowardsZero(milliseconds * 1e6) % 1000
+    };
 
     const units = {
       days: "d",
