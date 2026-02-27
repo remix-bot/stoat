@@ -277,7 +277,7 @@ class Remix {
       this.comHashLong = null;
     }
 
-    this.comLink = (this.comHashLong) ? "https://github.com/remix-bot/revolt/tree/" + this.comHashLong : "https://github.com/remix-bot/revolt";
+    this.comLink = (this.comHashLong) ? "https://github.com/remix-bot/stoat/tree/" + this.comHashLong : "https://github.com/remix-bot/stoat";
     this.playerMap = new Map();
     this.currPort = -1;
     this.channels = [];
