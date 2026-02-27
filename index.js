@@ -806,11 +806,7 @@ class Remix {
       title: "Utility Commands"
     }, {
       reaction: "💻",
-      content: [`If you need help with anything or encounter any issues, hop over to our support server [Remix HQ](/invite/Remix)!\n
-      Alternatively, you can write a dm to any of the following people:
-      - <@01FZ5P08W36B05M18FP3HF4PT1> (Community Manager & Developer)
-      - <@01G9MCW5KZFKT2CRAD3G3B9JN5> (Lead Developer)
-      - <@01FVB1ZGCPS8TJ4PD4P7NAFDZA> (Junior Developer)`],
+      content: ["If you need help with anything or encounter any issues, hop over to our support server [Remix HQ](https://stt.gg/Remix)!\nAlternatively, you can write a dm to any of the following people:\n\n- <@01FZ5P08W36B05M18FP3HF4PT1> (Community Manager)\n- <@01G9MCW5KZFKT2CRAD3G3B9JN5> (Lead Developer)\n- <@01FVB1ZGCPS8TJ4PD4P7NAFDZA> (Junior Developer)"],
       form: "# Support\n\n$content\n\n###### Page $currPage/$maxPage",
       title: "Support Info"
     }]; // TODO: add status, or news page
