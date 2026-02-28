@@ -7,7 +7,7 @@ module.exports = {
   run: async function(message) {
     const p = await this.getPlayer(message);
     if (!p) return;
-    let res = p.resume() || `:white_check_mark: The song has been resumed!`;
+    let res = p.resume() || `✅ The song has been resumed!`;
     message.channel.sendMessage(this.em(res, message));
   }
 }

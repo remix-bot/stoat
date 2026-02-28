@@ -6,14 +6,14 @@ module.exports = {
     .addAliases("info")
     .setCategory("util"),
   run: async function(message) {
-    const reason = (this.config.restart) ? ":screwdriver: Cause for last restart: `" + this.config.restart + "`\n": "";
-    const version = ":building_construction: Build: [`" + this.comHash + "`](" + this.comLink + ") :link:";
+    const reason = (this.config.restart) ? "🪛 Cause for last restart: `" + this.config.restart + "`\n": "";
+    const version = "🏦 Build: [`" + this.comHash + "`](" + this.comLink + ") 🔗";
     const time = this.prettifyMS(Math.round(process.uptime()) * 1000);
     const footer = this.config.customStatsFooter || "";
-    const users = (this.config.fetchUsers) ? `\n:adult: User Count: \`${this.client.users.size()}\`` : "";
+    const users = (this.config.fetchUsers) ? `\n👤 User Count: \`${this.client.users.size()}\`` : "";
     const start = Date.now();
-    const msg = await message.channel.sendMessage(this.em(`__**Stats:**__\n\n:open_file_folder: Server Count: \`${this.client.servers.size()}\`${users}\n:mega: Player Count: \`${this.revoice.connections.size}\`\n🏓 Ping: \`...\`\n⌚️ Uptime: \`${time}\`\n${reason}${version}${footer}`, message));
+    const msg = await message.channel.sendMessage(this.em(`__**Stats:**__\n\n📂 Server Count: \`${this.client.servers.size()}\`${users}\n📣 Player Count: \`${this.revoice.connections.size}\`\n🏓 Ping: \`...\`\n⌛ Uptime: \`${time}\`\n${reason}${version}${footer}`, message));
     const ping = Date.now() - start;
-    msg.edit(this.em(`__**Stats:**__\n\n:open_file_folder: Server Count: \`${this.client.servers.size()}\`${users}\n:mega: Player Count: \`${this.revoice.connections.size}\`\n🏓 Ping: \`${ping}ms\`\n⌚️ Uptime: \`${time}\`\n${reason}${version}${footer}`, message));
+    msg.edit(this.em(`__**Stats:**__\n\n📂 Server Count: \`${this.client.servers.size()}\`${users}\n📣 Player Count: \`${this.revoice.connections.size}\`\n🏓 Ping: \`${ping}ms\`\n⌛ Uptime: \`${time}\`\n${reason}${version}${footer}`, message));
   }
 }

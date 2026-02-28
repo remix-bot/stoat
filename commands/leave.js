@@ -9,7 +9,7 @@ function leaveChannel(msg, cid, p) {
     //p.leave().then(async left => {
     p.destroy(); // wait for the ports to be open again
     this.freed.push(port);
-    m.edit(this.em((left) ? `:white_check_mark: Successfully Left` : `Not connected to any voice channel`, msg));
+    m.edit(this.em((left) ? `✅ Successfully Left` : `Not connected to any voice channel`, msg));
     res();
   });
 }

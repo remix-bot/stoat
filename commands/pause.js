@@ -7,7 +7,7 @@ module.exports = {
   run: async function(message) {
     const p = await this.getPlayer(message);
     if (!p) return;
-    let res = p.pause() || `:white_check_mark: The song has been paused!`;
+    let res = p.pause() || `✅ The song has been paused!`;
     message.channel.sendMessage(this.em(res, message));
   }
 }

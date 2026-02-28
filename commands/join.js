@@ -56,7 +56,7 @@ function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
   this.playerMap.set(cid, p);
   message.reply(this.em("Joining Channel...",   message), false).then((message) => {
     p.join(cid).then(() => {
-      message.edit(this.em(`:white_check_mark: Successfully joined <#${cid}>`, message));
+      message.edit(this.em(`✅ Successfully joined <#${cid}>`, message));
       cb(p);
 
       p.connection.on("userjoin", (user) => {
