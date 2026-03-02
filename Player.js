@@ -87,18 +87,14 @@ class RevoltPlayer extends EventEmitter {
     this.resultLimit = 5;
     this.startedPlaying = null;
     this.searches = new Map();
-    this._channelData = new Map();
+    this.data = this.data = {
+      queue: [],
+      current: null,
+      loop: false,
+      loopSong: false
+    };
 
     return this;
-  }
-  // Returns the isolated queue/state for the currently active channel.
-  // Falls back to a shared "global" slot if no channelId is set yet.
-  get data() {
-    const key = this.connection?.channelId || "_global";
-    if (!this._channelData.has(key)) {
-      this._channelData.set(key, { queue: [], current: null, loop: false, loopSong: false });
-    }
-    return this._channelData.get(key);
   }
   setUpdateHandler(handler) {
     this.updateHandler = handler;
@@ -544,8 +540,7 @@ class RevoltPlayer extends EventEmitter {
         this.leaving = true;
         this.connection.leave();
         this.voice.connections.delete(channelKey);
-        // Clear only this channel's data, leaving other channels untouched
-        this._channelData.delete(channelKey);
+        this.data = null; // data should not e used after leaving, the Player object is invalidated.
       }
     } catch (error) {
       return false;

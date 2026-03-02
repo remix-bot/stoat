@@ -8,3 +8,4 @@ bot.js
 bin/
 test_data/
 *.code-workspace
+*old.js
