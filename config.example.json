@@ -4,6 +4,9 @@
     "email": "An email - only use this if you want to run a self-botted instance; For bots use the above token",
     "password": "The password to the account"
   },
+  "stoat.js": {
+    "heartbeatInterval": 30000
+  },
   "prefix": "your desired prefix (such as %)",
   "presenceInterval": null,
   "presenceContents": [],
@@ -30,7 +33,7 @@
 
   ],
   "cache": {
-    "guilds": { 
+    "guilds": {
       "enabled": true,
       "max": 5000
     },

@@ -25,10 +25,8 @@ if (fs.existsSync("./config.json")) {
 class Remix {
   constructor() {
     this.client = new Client({
-      ...config["revolt.js"],
-      heartbeatInterval: 45000
+      ...config["stoat.js"],
     });
-    this.client.config = config;
     this.config = config;
     this.modules = require("./storage/modules.json");
     this.spotifyConfig = config.spotify;
