@@ -1,4 +1,4 @@
-import { Client, User } from "revolt.js";
+import { Client, User, Message as StoatMessage } from "revolt.js";
 
 export class MessageHandler {
   /**
@@ -40,11 +40,24 @@ export class MessageHandler {
     });
   }
 
+  /**
+   * Get a cached message by id.
+   *
+   * @param {string} id The message id
+   * @returns {Message}
+   */
   get(id) {
     const msg = this.client.messages.get(id);
     if (!msg) return null;
     return new Message(msg, this);
   }
+  /**
+   * Either gets a message from cache or fetches it.
+   *
+   * @param {string} id message id
+   * @param {string} channelId channel d
+   * @returns {Promise<Message>}
+   */
   async getOrFetch(id, channelId) {
     const msg = this.get(id);
     if (msg) return msg;
@@ -65,6 +78,7 @@ export class MessageHandler {
   }
 
   #masquerade(msg) {
+    return null; // for now
     // TODO: integrate settings
     let a = this.getSettings(msg).get("pfp");
     let avatar = null;
@@ -116,6 +130,10 @@ export class MessageHandler {
 }
 
 export class Message {
+  /**
+   * The actual underlying message instance
+   * @type {StoatMessage}
+   */
   message;
   handler;
 

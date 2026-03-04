@@ -15,6 +15,7 @@ client.on("ready", async () => {
   const close = msg.onReaction(["👉"], (event) => {
     console.log("event", event);
     if (counter++ == 2) return close();
+    msg.replyEmbed("Hi, how are you?");
   });
 });
 
