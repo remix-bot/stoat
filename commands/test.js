@@ -1,4 +1,5 @@
 const { CommandBuilder } = require("../Commands.js");
+const Uploader = require("revolt-uploader");
 
 module.exports = {
   command: new CommandBuilder()
@@ -20,8 +21,13 @@ module.exports = {
       o.setName("string")
         .setDescription("A cool string")
         .setRequired(true)),
-  run: async function(msg, data) {
+  run: async function (msg, data) {
+    const uploader = new Uploader(this.client);
     console.log(data.options);
-    msg.reply(this.em("Ref String: " + data.get("string").value + "; " + data.get("test").value + "; Option received: " + data.getById("testOption")?.value, msg), false)
+    const id = await uploader.uploadFile("./dashboard/static/assets/icon.png", "img");
+    const embed = this.em("Ref String: " + data.get("string").value + "; " + data.get("test").value + "; Option received: " + data.getById("testOption")?.value, msg);
+    embed.embeds[0].media = id;
+    embed.attachments = [id];
+    msg.reply(embed, false)
   }
 }

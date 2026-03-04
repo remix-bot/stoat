@@ -98,7 +98,7 @@ export class MessageHandler {
   }
   #embedify(text = "", options = {}) {
     options = {
-      color: "#e9196c",
+      colour: "#e9196c",
       ...options // including media, icon_url, title...
     }
     return {
@@ -115,17 +115,22 @@ export class MessageHandler {
   }
 
   // TODO: check permissions
-  reply(replyingTo, message, mention = false) {
-    return replyingTo.reply(message, mention);
+  async reply(replyingTo, message, mention = false) {
+    return new Message(await replyingTo.reply(message, mention), this);
   }
-  replyEmbed(replyingTo, message, options = {}) {
+  async replyEmbed(replyingTo, message, options = {}) {
     options = {
       mention: false,
       embed: {},
       ...options
     }
     const embed = this.#createEmbed(message, replyingTo, options.embed);
-    return replyingTo.reply(embed, options.mention);
+    return new Message(await replyingTo.reply(embed, options.mention), this);
+  }
+
+  editEmbed(message, newContent, options) {
+    const embed = this.#createEmbed(newContent, message, options);
+    return message.edit(embed);
   }
 }
 
@@ -175,5 +180,9 @@ export class Message {
       mention,
       embed: embedOptions
     });
+  }
+
+  editEmbed(content, embedOptions) {
+    return this.handler.editEmbed(this.message, content, embedOptions);
   }
 }
