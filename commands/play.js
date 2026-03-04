@@ -14,7 +14,7 @@ module.exports = {
         .setDescription("The search result provider (YouTube, YouTube Music or SoundCloud). Default: SoundCloud", "options.search.provider") // same as search provider flag
         .addFlagAliases("p", "u", "use")
         .addChoices("ytm", "yt", "scld")
-        .setDefault("scld")
+        .setDefault("ytm")
     , true).addAlias("p"),
   run: async function(message, data) {
     const p = await this.getPlayer(message);

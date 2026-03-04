@@ -8,3 +8,7 @@ bot.js
 bin/
 test_data/
 *.code-workspace
+*old.js
+.ytcache/
+.yt_auth.json
+yt_auth.json

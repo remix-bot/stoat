@@ -11,6 +11,7 @@ module.exports = {
     const time = this.prettifyMS(Math.round(process.uptime()) * 1000);
     const footer = this.config.customStatsFooter || "";
     const users = (this.config.fetchUsers) ? `\n👤 User Count: \`${this.client.users.size()}\`` : "";
+    // TODO: implement better way of measuring ping
     const start = Date.now();
     const msg = await message.channel.sendMessage(this.em(`__**Stats:**__\n\n📂 Server Count: \`${this.client.servers.size()}\`${users}\n📣 Player Count: \`${this.revoice.connections.size}\`\n🏓 Ping: \`...\`\n⌛ Uptime: \`${time}\`\n${reason}${version}${footer}`, message));
     const ping = Date.now() - start;
