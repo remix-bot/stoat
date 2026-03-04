@@ -45,12 +45,9 @@
   "helpCatalog": true,
   "helpPagination": true,
   "mapMembers": true,
-  "mysql": {
-    "host": "your-mysql-host.com",
-    "port": 3306,
-    "user": "youruser",
-    "password": "password of your user",
-    "database": "name of the target database"
+  "mongodb": {
+    "uri": "mongodb://localhost:27017",
+    "database": "your_bot_database"
   },
   "rbl": "Your token for revoltbots.org; optional",
   "webPort": 80,
