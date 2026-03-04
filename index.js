@@ -140,9 +140,9 @@ class Remix {
         if (this.cachedGuilds.length > config.cache.guilds.max) this.cachedGuilds.shift()
         if (!this.cachedGuilds[m.channel.serverId]) this.cachedGuilds.push(m.channel.serverId);
       }
-      if ((config?.cache.members.enabled) && this.userCache > (config?.cache.members.max ?? 10000)) this.userCache.shift()
+      /*if ((config?.cache.members.enabled) && this.userCache > (config?.cache.members.max ?? 10000)) this.userCache.shift()
       const dupCheck = this.userCache.find(user => m.authorId == user.id)
-      if (!dupCheck) this.userCache.push({ id: m.authorId, name: m.author.username, discrm: m.author.discriminator })
+      if (!dupCheck) this.userCache.push({ id: m.authorId, name: m.author.username, discrm: m.author.discriminator })*/
       if (!this.observedUsers.has(m.authorId + ";" + m.channelId)) return;
       this.observedUsers.get(m.authorId + ";" + m.channelId)(m);
     });
