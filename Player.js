@@ -276,8 +276,8 @@ class RevoltPlayer extends EventEmitter {
   }
   uploadThumbnail() {
     return new Promise((res) => {
-      return res();
-      // TODO: fix uploader
+      //return res();
+      const https = require("https");
       if (!this.data.current) return res(null);
       if (!this.data.current.thumbnail) return res(null);
       https.get(this.data.current.thumbnail, async (response) => {

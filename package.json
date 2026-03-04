@@ -18,7 +18,7 @@
     "mysql": "^2.18.1",
     "prism-media": "^1.3.5",
     "revoice.js": "^0.2.168",
-    "revolt-uploader": "^1.1.6",
+    "revolt-uploader": "^1.1.71",
     "revolt.js": "npm:stoat.js@^7.3.6",
     "revoltbots.js": "^1.0.5",
     "session.socket.io": "^0.2.1",
