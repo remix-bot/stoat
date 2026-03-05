@@ -31,7 +31,6 @@ class Remix {
     this.modules = require("./storage/modules.json");
     this.spotifyConfig = config.spotify;
     this.announceSong = config.songAnnouncements;
-    this.presenceInterval = config.presenceInterval || 7000;
 
     this.memberMap = new Map();
     this.userCache = []
@@ -47,10 +46,31 @@ class Remix {
 
     this.uploader = new Uploader(this.client);
 
+    const { Utils } = require("./src/Utils.mjs");
+    this.prettifyMS = Utils.prettifyMS;
     this.geniusClient = new Genius.Client(this.config.geniusToken);
     this.spotify = new Spotify(this.spotifyConfig);
 
-    this.presence = "Online";
+    const defaultPresence = {
+      status: "Online",
+      contents: ["Ping for prefix", "By RedTech | NoLogicAlan", "Servers: $serverCount"],
+      interval: 7000
+    };
+    const configuredPresence = (config.presence && typeof config.presence === "object") ? config.presence : {};
+    this.presence = {
+      ...defaultPresence,
+      ...configuredPresence
+    };
+    if (!Array.isArray(this.presence.contents) || this.presence.contents.length === 0) {
+      this.presence.contents = [...defaultPresence.contents];
+    }
+    if (!Number.isFinite(this.presence.interval) || this.presence.interval <= 0) {
+      this.presence.interval = defaultPresence.interval;
+    }
+    if (!this.presence.status || typeof this.presence.status !== "string") {
+      this.presence.status = defaultPresence.status;
+    }
+    this.presenceUpdater = null;
 
     this.initInnertube();
 
@@ -110,22 +130,19 @@ class Remix {
           }
         }, 5000);
       }
-      console.log("Logged in as " + this.client.user.username);
-    });
-    this.client.once("ready", () => {
       let state = 0;
-      let def = ["Ping for prefix", "By RedTech | NoLogicAlan", "Servers: $serverCount"];
-      let texts = config.presenceContents || def;
-      if (texts.length == 0) texts = def;
-      setInterval(() => {
+      const texts = this.presence.contents;
+      if (this.presenceUpdater) clearInterval(this.presenceUpdater);
+      this.presenceUpdater = setInterval(() => {
+        const statusText = String(texts[state] || "").replace(/\$serverCount/g, this.client.servers.size());
         this.client.user.edit({
           status: {
-            text: texts[state].replace(/\$serverCount/g, this.client.servers.size()),
-            presence: this.presence
+            text: statusText,
+            presence: this.presence.status
           },
         });
         if (state == texts.length - 1) { state = 0 } else { state++ }
-      }, this.presenceInterval);
+      }, this.presence.interval);
 
       if (!this.config.fetchUsers) return;
       this.fetchUsers(); // TODO: find out why I did this, there is a reason (Mabye caching?) but I have no clue and am scared to remove this
@@ -395,7 +412,7 @@ class Remix {
     this.memberMap.set(server, members);
     users.forEach(user => {
       if (this.userCache.findIndex(e => e.id === user.id) !== -1) return;
-      this.userCache.push({ id: user.id, name: user.username, discrim: user.discriminator})
+      this.userCache.push({ id: user.id, name: user.username, discrim: user.discriminator })
     });
   }
 
@@ -682,7 +699,7 @@ class Remix {
       }).catch(() => { });
       return message.reply({ content: " ", embeds: [this.embedify("I need reaction permissions to work. Please contact a server administrator to address this.")] }, true);
     }
-    const arrows = [ "👈", "👉" ];
+    const arrows = ["👈", "👉"];
     var page = 0;
     const paginated = this.pages(content, maxLinesPerPage);
     form = form.replace(/\$maxPage/gi, paginated.length);
@@ -876,33 +893,6 @@ class Remix {
   }
   isNumber(n) {
     return !isNaN(n) && !isNaN(parseFloat(n));
-  }
-  prettifyMS(milliseconds) {
-    const roundTowardsZero = milliseconds > 0 ? Math.floor : Math.ceil;
-
-    const parsed = {
-      days: roundTowardsZero(milliseconds / 86400000),
-      hours: roundTowardsZero(milliseconds / 3600000) % 24,
-      minutes: roundTowardsZero(milliseconds / 60000) % 60,
-      seconds: roundTowardsZero(milliseconds / 1000) % 60,
-      milliseconds: roundTowardsZero(milliseconds) % 1000,
-      microseconds: roundTowardsZero(milliseconds * 1000) % 1000,
-      nanoseconds: roundTowardsZero(milliseconds * 1e6) % 1000
-    };
-
-    const units = {
-      days: "d",
-      hours: "h",
-      minutes: "m",
-      seconds: "s"
-    }
-
-    var result = "";
-    for (let k in parsed) {
-      if (!parsed[k] || !units[k]) continue;
-      result += " " + parsed[k] + units[k];
-    }
-    return result.trim();
   }
 }
 
