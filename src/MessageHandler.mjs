@@ -1,9 +1,10 @@
-import { Client, User, Message as StoatMessage } from "revolt.js";
+import { Client, User, Message as StoatMessage, Channel } from "revolt.js";
 
 export class MessageHandler {
   /**
    * Stoat.js client instance
    * @type {Client}
+   * @public
    */
   client;
   observedReactions;
@@ -27,6 +28,47 @@ export class MessageHandler {
     }
     this.client.on("messageReactionAdd", reactionUpdate);
     this.client.on("messageReactionRemove", reactionUpdate);
+  }
+
+  /**
+   * Checks if the bot has the specified permissions in a specific channel and returns missing ones.
+   *
+   * @param {string[]} permissions An array of permissions to check for.
+   * @param {Channel} channel The channel to check the permissions in.
+   * @returns {string[]} Missing permissions.
+   */
+  checkPermissions(permissions, channel) {
+    return permissions.filter(p => !channel.havePermission(p));
+  }
+  /**
+   *
+   * @param {string[]} permissions Permissions to check for.
+   * @param {StoatMessage} message The message to reply to in case of missing permissions.
+   * @returns {Promise<boolean>} If all permissions are given.
+   */
+  async assertPermissions(permissions, message) {
+    const missing = this.checkPermissions(permissions, message.channel);
+    if (missing.length == 0) return true;
+
+
+    if (missing.includes("SendMessage")) {
+      try {
+        const dm = await message.member?.user.openDM();
+        dm.sendMessage({
+          content: " ",
+          embeds: [
+            this.#embedify("I am unable to send messages in <#" + message.channelId + ">. Please contact a server administrator and grant me the \"SendMessage\" permission.")
+          ]
+        });
+      } catch (e) {
+        console.log("[MessageHandler] Error sending message in DMs (" + message.authorId + "): ", e);
+      }
+      return false;
+    }
+
+    this.replyEmbed(message, "I need the following permissions: `" + missing.join(",") + "`. Please contact a server administrator to address this.", { mention: true });
+
+    return false;
   }
 
   /**
@@ -115,10 +157,28 @@ export class MessageHandler {
   }
 
   // TODO: check permissions
+  /**
+   * @param {StoatMessage} replyingTo
+   * @param {string} message
+   * @param {boolean} mention
+   * @returns {Promise<StoatMessage>}
+   */
   async reply(replyingTo, message, mention = false) {
+    if (!(await this.assertPermissions(["SendMessage"], replyingTo))) return null;
     return new Message(await replyingTo.reply(message, mention), this);
   }
+
+  /**
+   * @param {StoatMessage} replyingTo
+   * @param {string} message
+   * @param {Object} options TODO, view code for defaults and possible options
+   * @returns {Promise<StoatMessage>}
+   */
   async replyEmbed(replyingTo, message, options = {}) {
+    if (this.checkPermissions(["SendEmbeds", "SendMessage"], replyingTo.channel).length != 0) {
+      return this.reply(replyingTo, message, options.mention);
+    }
+    // TODO: Text fallback
     options = {
       mention: false,
       embed: {},
@@ -131,6 +191,28 @@ export class MessageHandler {
   editEmbed(message, newContent, options) {
     const embed = this.#createEmbed(newContent, message, options);
     return message.edit(embed);
+  }
+
+  /**
+   *
+   * @param {string} form The template defining the structure of the paginated message.
+   * @param {string} content The initial content, inserted at `$content` in the template.
+   * @param {StoatMessage} message Message to reply to.
+   * @param {Object} options
+   * @param {number} [options.maxLinesPerPage=2] How many lines (separated by `\n`) should be displayed per page.
+   * @param {boolean} [options.mention=false] Wether the original message should be pinged.
+   * @returns {Promise<undefined>} The promise resolves when the setup finishes.
+   */
+  async initPagination(form, content, message, options) {
+    options = {
+      maxLinesPerPage: 2,
+      ...options
+    };
+    if (!(await this.assertPermissions(["React", "SendMessage"], message))) {
+      return;
+    }
+
+    const arrows = [ "👈", "👉" ];
   }
 }
 
@@ -147,12 +229,15 @@ export class Message {
     this.handler = handler;
   }
 
+  /**@type {string} */
   get content() {
     return this.message.content;
   }
+  /**@type {string} */
   get id() {
     return this.message.id;
   }
+  /** @type {User} */
   get author() {
     return this.message.author;
   }

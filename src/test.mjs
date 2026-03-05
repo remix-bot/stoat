@@ -8,14 +8,17 @@ const messages = new MessageHandler(client);
 client.on("ready", async () => {
   console.log("ready");
 
-  const msg = await messages.getOrFetch("01KJXF8BENEYS38B9MCEG30AN9", "01JMJEG538ZPW3DNBDR4N18414");
+  const msg = await messages.getOrFetch("01KJZCKN01HF4KQAG0DWA98755", "01JMJEG538ZPW3DNBDR4N18414");
   console.log(msg);
 
   var counter = 0;
   const close = msg.onReaction(["👉"], (event) => {
     console.log("event", event);
     if (counter++ == 2) return close();
-    msg.replyEmbed("Hi, how are you?");
+    msg.replyEmbed("Hi, how are you?").then(m => {
+      //console.log(m);
+      //m.editEmbed("new content");
+    });
   });
 });
 
