@@ -1,31 +1,54 @@
-const { SettingsManager, RemoteSettingsManager } = require("./Settings.js");
+const { SettingsManager, MySQLSettingsManager, MongoSettingsManager } = require("./Settings.js");
 const config = require("../config.json");
 
+const TARGET = (config.db || "mongo").toLowerCase();
+
 const sm = new SettingsManager();
+sm.loadDefaultsSync("./storage/defaults.json");
+const servers = Array.from(sm.guilds.entries());
 
-// Update: Pass the URI and Database name from your new MongoDB config
-const rsm = new RemoteSettingsManager(
-  config.mongodb.uri, 
-  config.mongodb.database,
-  "./path/to/defaults.json" // Make sure this path is correct
-);
+if (servers.length === 0) {
+  console.log("No servers found in local storage. Nothing to migrate.");
+  process.exit(0);
+}
 
-const servers = sm.guilds.entries();
+console.log(`Migrating ${servers.length} server(s) to ${TARGET}...`);
 
-rsm.on("ready", async () => {
-  for (const [id, s] of servers) {
-    console.log(`Syncing server: ${id}`);
-    
-    // In the MongoDB version we wrote, we use saveServer or update
-    // to handle both creating and updating (upserting)
-    try {
-      await rsm.saveServer(s);
-      console.log(`Successfully synced ${id}`);
-    } catch (err) {
-      console.error(`Failed to sync ${id}:`, err);
+if (TARGET === "mongo") {
+  const rsm = new MongoSettingsManager(
+    config.mongodb.uri,
+    config.mongodb.database,
+    "./storage/defaults.json"
+  );
+  rsm.on("ready", async () => {
+    for (const [id, s] of servers) {
+      try {
+        await rsm.saveServer(s);
+        console.log(`✓ ${id}`);
+      } catch (err) {
+        console.error(`✗ ${id}:`, err);
+      }
     }
-  }
+    console.log("Done!");
+    process.exit(0);
+  });
 
-  console.log("Migration/Sync complete.");
-  process.exit(0); // Exit with 0 for success
-});
+} else if (TARGET === "mysql") {
+  const rsm = new MySQLSettingsManager(config.mysql, "./storage/defaults.json");
+  rsm.on("ready", async () => {
+    for (const [id, s] of servers) {
+      try {
+        if (rsm.hasServer(id)) {
+          await rsm.remoteSave(s);
+        } else {
+          await rsm.create(id, s);
+        }
+        console.log(`✓ ${id}`);
+      } catch (err) {
+        console.error(`✗ ${id}:`, err);
+      }
+    }
+    console.log("Done!");
+    process.exit(0);
+  });
+}

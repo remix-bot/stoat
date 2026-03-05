@@ -29,9 +29,7 @@
       "keyWords": ["radio", "zamrock", "psychedelic", "blues", "rock"]
     }
   },
-  "radio": [
-
-  ],
+  "radio": [],
   "cache": {
     "guilds": {
       "enabled": true,
@@ -45,6 +43,14 @@
   "helpCatalog": true,
   "helpPagination": true,
   "mapMembers": true,
+  "db": "mongo/mysql",
+  "mysql": {
+    "host": "your-mysql-host.com",
+    "port": 3306,
+    "user": "youruser",
+    "password": "password of your user",
+    "database": "name of the target database"
+  },
   "mongodb": {
     "uri": "mongodb://localhost:27017",
     "database": "your_bot_database"
