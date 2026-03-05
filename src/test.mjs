@@ -8,7 +8,9 @@ const messages = new MessageHandler(client);
 client.on("ready", async () => {
   console.log("ready");
 
-  const msg = await messages.getOrFetch("01KJZCKN01HF4KQAG0DWA98755", "01JMJEG538ZPW3DNBDR4N18414");
+  const channel = messages.getChannel("01JMJEG538ZPW3DNBDR4N18414");
+  await channel.sendEmbed("Hi!")
+  const msg = await messages.getOrFetch("01KJZJXSBQVW27PXPWEAZFADC5", "01JMJEG538ZPW3DNBDR4N18414");
   console.log(msg);
 
   var counter = 0;

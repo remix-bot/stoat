@@ -1,4 +1,4 @@
-import { Client, User, Message as StoatMessage, Channel } from "revolt.js";
+import { Client, User, Message as StoatMessage, Channel as StoatChannel } from "revolt.js";
 
 export class MessageHandler {
   /**
@@ -34,7 +34,7 @@ export class MessageHandler {
    * Checks if the bot has the specified permissions in a specific channel and returns missing ones.
    *
    * @param {string[]} permissions An array of permissions to check for.
-   * @param {Channel} channel The channel to check the permissions in.
+   * @param {StoatChannel} channel The channel to check the permissions in.
    * @returns {string[]} Missing permissions.
    */
   checkPermissions(permissions, channel) {
@@ -106,6 +106,26 @@ export class MessageHandler {
 
     return new Message(await this.client.messages.fetch(channelId, id), this);
   }
+  /**
+   * Get a cached channel by id.
+   *
+   * @param {string} id channel id
+   * @returns {Channel}
+   */
+  getChannel(id) {
+    const c = this.client.channels.get(id);
+    return new Channel(c, this);
+  }
+  /**
+   * Analog to MessageHandler.getOrFetch
+   * @param {string} id
+   * @returns {Promise<Channel>}
+   */
+  async getOrFetchChannel(id) {
+    const c = this.getChannel(id);
+    if (c) return c;
+    return new Channel(await this.client.channels.fetch(id), this);
+  }
 
   observeReactions(msg, reactions, cb, user) {
     this.observedReactions.set(msg.id, {
@@ -119,7 +139,7 @@ export class MessageHandler {
     return this.observedReactions.delete(i);
   }
 
-  #masquerade(msg) {
+  #masquerade(channel) {
     return null; // for now
     // TODO: integrate settings
     let a = this.getSettings(msg).get("pfp");
@@ -149,14 +169,17 @@ export class MessageHandler {
     }
   }
   #createEmbed(text, message, options = {}) {
+    var channel = message;
+    if (message instanceof StoatMessage) {
+      channel = message.channel;
+    }
     return {
       content: " ",
       embeds: [this.#embedify(text, options)],
-      masquerade: this.#masquerade(message)
+      masquerade: this.#masquerade(channel)
     }
   }
 
-  // TODO: check permissions
   /**
    * @param {StoatMessage} replyingTo
    * @param {string} message
@@ -178,7 +201,6 @@ export class MessageHandler {
     if (this.checkPermissions(["SendEmbeds", "SendMessage"], replyingTo.channel).length != 0) {
       return this.reply(replyingTo, message, options.mention);
     }
-    // TODO: Text fallback
     options = {
       mention: false,
       embed: {},
@@ -187,25 +209,44 @@ export class MessageHandler {
     const embed = this.#createEmbed(message, replyingTo, options.embed);
     return new Message(await replyingTo.reply(embed, options.mention), this);
   }
+  /**
+   * @param {StoatChannel} channel
+   * @param {string} message
+   * @returns {Promise<Message>}
+   */
+  async sendMessage(channel, message) {
+    // TODO: check permissions
+    return new Message(await channel.sendMessage(message));
+  }
+  /**
+   * @param {StoatChannel} channel
+   * @param {string} content
+   * @param {Object} options
+   * @returns {Promise<Message>}
+   */
+  async sendEmbed(channel, content, options={}) {
+    // TODO: check permissions
+    const embed = this.#createEmbed(content, channel, options);
+    return channel.sendMessage(embed);
+  }
 
-  editEmbed(message, newContent, options) {
+  editEmbed(message, newContent, options={}) {
+    // TODO: permission checking
     const embed = this.#createEmbed(newContent, message, options);
     return message.edit(embed);
   }
 
   /**
    *
-   * @param {string} form The template defining the structure of the paginated message.
-   * @param {string} content The initial content, inserted at `$content` in the template.
+   * @param {PageBuilder} builder A configured PageBuilder with the content of the pages.
    * @param {StoatMessage} message Message to reply to.
    * @param {Object} options
-   * @param {number} [options.maxLinesPerPage=2] How many lines (separated by `\n`) should be displayed per page.
    * @param {boolean} [options.mention=false] Wether the original message should be pinged.
    * @returns {Promise<undefined>} The promise resolves when the setup finishes.
    */
-  async initPagination(form, content, message, options) {
+  async initPagination(builder, message, options) {
     options = {
-      maxLinesPerPage: 2,
+      mention: false,
       ...options
     };
     if (!(await this.assertPermissions(["React", "SendMessage"], message))) {
@@ -216,12 +257,48 @@ export class MessageHandler {
   }
 }
 
+export class Channel {
+  /**
+   * The actual underlying stoat.js channel instance
+   * @type {StoatChannel}
+   */
+  channel;
+  /** @type {MessageHandler} */
+  handler;
+
+  /**
+   * @param {StoatChannel channel
+   * @param {MessageHandler} handler
+   */
+  constructor(channel, handler) {
+    this.channel = channel;
+    this.handler = handler;
+  }
+
+  /**
+   * @param {string} content
+   * @returns {Promise<Message>}
+   */
+  sendMessage(content) {
+    return this.handler.sendMessage(this.channel, content);
+  }
+  /**
+   * @param {string} content
+   * @param {Object} embedOptions
+   * @returns {Promise<Message>}
+   */
+  sendEmbed(content, embedOptions={}) {
+    return this.handler.sendEmbed(this.channel, content, embedOptions);
+  }
+}
+
 export class Message {
   /**
    * The actual underlying message instance
    * @type {StoatMessage}
    */
   message;
+  /** @type {MessageHandler} */
   handler;
 
   constructor(message, handler) {
@@ -240,6 +317,10 @@ export class Message {
   /** @type {User} */
   get author() {
     return this.message.author;
+  }
+  /** @type {Channel} */
+  get channel() {
+    return this.handler.getChannel(this.message.channel.id);
   }
 
   /**
@@ -260,14 +341,80 @@ export class Message {
   reply(content, mention = false) {
     return this.handler.reply(this.message, content, mention);
   }
-  replyEmbed(content, mention = false, embedOptions) {
+  replyEmbed(content, mention = false, embedOptions={}) {
     return this.handler.replyEmbed(this.message, content, {
       mention,
       embed: embedOptions
     });
   }
 
-  editEmbed(content, embedOptions) {
+  editEmbed(content, embedOptions={}) {
     return this.handler.editEmbed(this.message, content, embedOptions);
+  }
+}
+
+export class PageBuilder {
+  form = "";
+  maxLinesPerPage = 2;
+  /**@type {string[]} */
+  content = [];
+
+  initiated = false;
+  pages = [];
+
+  /**
+   * @param {string|string[]} content The content that should be paginated. Strings are split along `\n`
+   */
+  constructor(content) {
+    if (!Array.isArray(content)) {
+      this.content = content.split("\n");
+      return;
+    }
+    this.content = content;
+  }
+
+  /**
+   * @param {string} form The template defining the structure of the paginated message.
+   * @returns
+   */
+  setForm(form) {
+    this.form = form;
+    return this;
+  }
+  /**
+   * @param {number} [maxLinesPerPage=2] How many lines (separated by `\n`) should be displayed per page.
+   * @returns
+   */
+  setMaxLines(maxLinesPerPage=2) {
+    this.maxLinesPerPage = maxLinesPerPage;
+    return this;
+  }
+
+  createPages() {
+    if (this.initiated) return this.pages;
+
+    const lines = this.content;
+    const pages = [];
+    for (let i = 0, n = 0; i < lines.length; i++, (i % this.maxLinesPerPage == 0) ? n++ : n) {
+      let line = lines[i];
+      if (!pages[n]) pages[n] = [];
+      pages[n].push(line);
+    }
+
+    this.pages = pages;
+    this.initiated = true;
+    return pages;
+  }
+
+  /**
+   * @param {number} n The zero-indexed page to return
+   * @returns {string} The page content
+   */
+  getPage(n) {
+    const pages = this.createPages();
+    return form
+      .replace(/\$maxPage/gi, pages.length)
+      .replace(/\$currentPage/gi, n + 1)
+      .replace(/\$content/gi, pages[n]);
   }
 }
