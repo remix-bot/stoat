@@ -4,7 +4,8 @@ const { Revoice } = require("revoice.js");
 const { Client } = require("revolt.js");
 const path = require("path");
 const fs = require("fs");
-const { SettingsManager, RemoteSettingsManager } = require("./settings/Settings.js");
+const dns = require('node:dns');
+const { createSettingsManager } = require("./settings/Settings.js");
 if (!process.execArgv.includes("--inspect")) require('console-stamp')(console, 'HH:MM:ss.l');
 const YTDlpWrap = require("yt-dlp-wrap-extended").default;
 const { Innertube, Platform } = require("youtubei.js");
@@ -43,8 +44,9 @@ class Remix {
     this.settingsMgr.loadDefaultsSync("./storage/defaults.json");*/
     // updated settings manager based on a mysql database:
     // TODO: add self-hosting instr
-    this.settingsMgr = new RemoteSettingsManager(this.config.mysql, "./storage/defaults.json");
-
+    // Pass the URI and the Database name from your new mongodb config block
+    dns.setDefaultResultOrder('ipv4first');
+    this.settingsMgr = createSettingsManager(this.config, "./storage/defaults.json");
     this.uploader = new Uploader(this.client);
 
     this.geniusClient = new Genius.Client(this.config.geniusToken);
