@@ -24,7 +24,7 @@ export class MessageHandler {
       const observer = this.observedReactions.get(message.id);
       if (!observer.reactions.includes(event.emoji_id)) return;
       if (observer.user) if (observer.user != user) return;
-      observer.cb(event, message);
+      observer.cb(event, new Message(message, this));
     }
     this.client.on("messageReactionAdd", reactionUpdate);
     this.client.on("messageReactionRemove", reactionUpdate);
@@ -72,9 +72,13 @@ export class MessageHandler {
   }
 
   /**
+   * @callback MessageListener
+   * @param {Message} message
+   */
+  /**
    * Listen for new messages
    *
-   * @param {function} listener A callback function which will be called with a {Message} object
+   * @param {MessageListener} listener A callback function which will be called with a {Message} object
    */
   onMessage(listener) {
     this.client.on("messageCreate", (msg) => {
@@ -182,7 +186,7 @@ export class MessageHandler {
 
   /**
    * @param {StoatMessage} replyingTo
-   * @param {string} message
+   * @param {string|Object} message If object, it needs to follow Stoat's message object format.
    * @param {boolean} mention
    * @returns {Promise<StoatMessage>}
    */
@@ -193,25 +197,34 @@ export class MessageHandler {
 
   /**
    * @param {StoatMessage} replyingTo
-   * @param {string} message
+   * @param {string|Object} message
+   * @param {string} message.embedText The text of the embed, in case message is not a string and contains other message data.
    * @param {Object} options TODO, view code for defaults and possible options
    * @returns {Promise<StoatMessage>}
    */
   async replyEmbed(replyingTo, message, options = {}) {
-    if (this.checkPermissions(["SendEmbeds", "SendMessage"], replyingTo.channel).length != 0) {
-      return this.reply(replyingTo, message, options.mention);
-    }
     options = {
       mention: false,
       embed: {},
       ...options
     }
-    const embed = this.#createEmbed(message, replyingTo, options.embed);
+    if (this.checkPermissions(["SendEmbeds", "SendMessage"], replyingTo.channel).length != 0) {
+      return this.reply(replyingTo, message, options.mention);
+    }
+    const content = (typeof message === "object") ? message.embedText : message;
+    var embed = this.#createEmbed(content, replyingTo, options.embed);
+    if (typeof message === "object") {
+      delete message.embedText;
+      embed = {
+        ...embed,
+        ...message
+      }
+    }
     return new Message(await replyingTo.reply(embed, options.mention), this);
   }
   /**
    * @param {StoatChannel} channel
-   * @param {string} message
+   * @param {string|Object} message
    * @returns {Promise<Message>}
    */
   async sendMessage(channel, message) {
@@ -220,26 +233,48 @@ export class MessageHandler {
   }
   /**
    * @param {StoatChannel} channel
-   * @param {string} content
+   * @param {string|Object} content
    * @param {Object} options
    * @returns {Promise<Message>}
    */
   async sendEmbed(channel, content, options={}) {
     // TODO: check permissions
-    const embed = this.#createEmbed(content, channel, options);
+    const message = (typeof content === "object") ? content.embedText : content;
+    var embed = this.#createEmbed(message, channel, options);
+    if (typeof content === "object") {
+      delete content.embedText;
+      embed = {
+        ...embed,
+        ...content
+      }
+    }
     return channel.sendMessage(embed);
   }
 
+  /**
+   * @param {StoatMessage} message
+   * @param {string|Object} newContent
+   * @param {Object} options
+   * @returns
+   */
   editEmbed(message, newContent, options={}) {
     // TODO: permission checking
-    const embed = this.#createEmbed(newContent, message, options);
+    const content = (typeof newContent === "object") ? newContent.embedText : newContent;
+    var embed = this.#createEmbed(content, message, options);
+    if (typeof newContent === "object") {
+      delete newContent.embedText;
+      embed = {
+        ...embed,
+        ...newContent
+      }
+    }
     return message.edit(embed);
   }
 
   /**
    *
    * @param {PageBuilder} builder A configured PageBuilder with the content of the pages.
-   * @param {StoatMessage} message Message to reply to.
+   * @param {Message} message Message to reply to.
    * @param {Object} options
    * @param {boolean} [options.mention=false] Wether the original message should be pinged.
    * @returns {Promise<undefined>} The promise resolves when the setup finishes.
@@ -249,11 +284,49 @@ export class MessageHandler {
       mention: false,
       ...options
     };
-    if (!(await this.assertPermissions(["React", "SendMessage"], message))) {
+    if (!(await this.assertPermissions(["React", "SendMessage"], message.message))) {
       return;
     }
 
-    const arrows = [ "👈", "👉" ];
+    const arrows = ["👈", "👉"];
+    const size = builder.size();
+
+    var page = 0;
+
+    const m = await message.replyEmbed({
+      embedText: builder.getPage(page),
+      interactions: {
+        restrict_reactions: true,
+        reactions: arrows
+      }
+    }, false)
+    const unsubscribe = m.onReaction(arrows, (e, ms) => {
+      if (size == 1) return;
+      let change = (e.emoji_id == arrows[0]) ? -1 : 1;
+      // roll over and under in case bounds are exceeded
+      if (page + change < 0) page = size - 1, change = 0;
+      if (!builder.getPage(page + change)) page = 0, change = 0;
+      page += change;
+      const newContent = builder.getPage(page);
+      ms.editEmbed(newContent);
+      clearTimeout(currTimer);
+      currTimer = setTimeout(() => {
+        finish();
+      }, 60 * 1000);
+    });
+    const finish = () => {
+      unsubscribe();
+      const lastContent = builder.getContent(page);
+      m.editEmbed({
+        embedText: lastContent + "\nSession closed - Changing pages **won't work** from here.",
+        content: "Session Closed"
+      }, {
+        colour: "red"
+      });
+    }
+    var currTimer = setTimeout(() => {
+      finish();
+    }, 60 * 1000);
   }
 }
 
@@ -276,14 +349,14 @@ export class Channel {
   }
 
   /**
-   * @param {string} content
+   * @param {string|Object} content
    * @returns {Promise<Message>}
    */
   sendMessage(content) {
     return this.handler.sendMessage(this.channel, content);
   }
   /**
-   * @param {string} content
+   * @param {string|Object} content
    * @param {Object} embedOptions
    * @returns {Promise<Message>}
    */
@@ -412,9 +485,26 @@ export class PageBuilder {
    */
   getPage(n) {
     const pages = this.createPages();
-    return form
+    if (!pages[n]) return null;
+    return this.form
       .replace(/\$maxPage/gi, pages.length)
       .replace(/\$currentPage/gi, n + 1)
-      .replace(/\$content/gi, pages[n]);
+      .replace(/\$content/gi, pages[n].join("\n"));
+  }
+  /**
+   * @param {number} n Zero-indexed page to retrive the content from.
+   * @returns {string} The content of that page excluding the template.
+   */
+  getContent(n) {
+    const pages = this.createPages();
+    if (!pages[n]) return null;
+    return pages[n].join("\n");
+  }
+
+  /**
+   * @returns {number} The amount of pages created.
+   */
+  size() {
+    return this.pages.length;
   }
 }

@@ -1,4 +1,4 @@
-import { MessageHandler } from "./MessageHandler.mjs";
+import { MessageHandler, PageBuilder } from "./MessageHandler.mjs";
 import { Client } from "revolt.js"
 import * as fs from "fs";
 
@@ -9,7 +9,7 @@ client.on("ready", async () => {
   console.log("ready");
 
   const channel = messages.getChannel("01JMJEG538ZPW3DNBDR4N18414");
-  await channel.sendEmbed("Hi!")
+  //await channel.sendEmbed("Hi!")
   const msg = await messages.getOrFetch("01KJZJXSBQVW27PXPWEAZFADC5", "01JMJEG538ZPW3DNBDR4N18414");
   console.log(msg);
 
@@ -22,6 +22,12 @@ client.on("ready", async () => {
       //m.editEmbed("new content");
     });
   });
+});
+
+messages.onMessage((message) => {
+  if (message.content !== "test") return;
+  const builder = new PageBuilder(["1", "2", "3", "4", "5", "6"]).setMaxLines(1).setForm("Title\n\n$content\n$currentPage/$maxPage");
+  messages.initPagination(builder, message);
 });
 
 client.loginBot(JSON.parse(fs.readFileSync("../config.json")).token);
