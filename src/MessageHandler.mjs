@@ -1,4 +1,4 @@
-import { Client, User, Message as StoatMessage, Channel as StoatChannel } from "revolt.js";
+import { Client, User, Message as StoatMessage, Channel as StoatChannel, ServerMember } from "revolt.js";
 
 export class MessageHandler {
   /**
@@ -78,7 +78,7 @@ export class MessageHandler {
   /**
    * Listen for new messages
    *
-   * @param {MessageListener} listener A callback function which will be called with a {Message} object
+   * @param {MessageListener} listener A callback function which will be called with a {@Message} object
    */
   onMessage(listener) {
     this.client.on("messageCreate", (msg) => {
@@ -395,6 +395,10 @@ export class Message {
   /** @type {User} */
   get author() {
     return this.message.author;
+  }
+  /** @type {ServerMember} */
+  get member() {
+    return this.message.member;
   }
   /** @type {Channel} */
   get channel() {
