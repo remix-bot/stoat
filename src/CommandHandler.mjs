@@ -1,7 +1,7 @@
 import { Utils } from "./Utils.mjs";
 import { EventEmitter } from "node:events";
 import { Message, MessageHandler } from "./MessageHandler.mjs";
-import { Client } from "revolt.js";
+import { Channel, Client, Message as StoatMessage, User } from "revolt.js";
 
 export class CommandBuilder {
   constructor() {
@@ -19,16 +19,436 @@ export class CommandBuilder {
     this.examples = [];
 
     this.uid = Utils.uid();
+
+    this.subcommandError = "Invalid subcommand. Try one of the following options: `$previousCmd <$cmdlist>`";
+    /** @type {CommandBuilder} */
+    this.parent = null;
+  }
+  /**
+   * @param {string} n
+   * @returns {CommandBuilder}
+   */
+  setName(n) {
+    this.name = n;
+    this.aliases.push(n.toLowerCase());
+    return this;
+  }
+  /**
+   * @param {string} d
+   * @returns {CommandBuilder}
+   */
+  setDescription(d) {
+    this.description = d;
+    return this;
+  }
+  /**
+   * @param {string} id
+   * @returns {CommandBuilder}
+   */
+  setId(id) {
+    this.id = id;
+    return this;
+  }
+  /**
+   * @template T
+   * @callback Config
+   * @param {T} req
+   */
+  /**
+   * @param {Config<T>} config
+   * @returns {CommandBuilder}
+   */
+  setRequirement(config) {
+    let req = config(new CommandRequirement());
+    this.requirements.push(req);
+    return this;
+  }
+  /**
+   * @param {Config<CommandBuilder>} config
+   * @returns {CommandBuilder}
+   */
+  addSubcommand(config) {
+    let sub = config(new CommandBuilder());
+    sub.parent = this;
+    this.subcommands.push(sub);
+    return this;
+  }
+  /**
+   * @param {Config<Option>} config
+   * @param {boolean=} flag
+   * @returns {CommandBuilder}
+   */
+  addStringOption(config, flag = false) {
+    this.options.push(config(Option.create("string", flag)));
+    return this;
+  }
+  /**
+   * @param {Config<Option>} config
+   * @param {boolean=} flag
+   * @returns {CommandBuilder}
+   */
+  addNumberOption(config, flag = false) {
+    this.options.push(config(Option.create("number", flag)));
+    return this;
+  }
+  /**
+   * @param {Config<Option>} config
+   * @param {boolean=} flag
+   * @returns {CommandBuilder}
+   */
+  addBooleanOption(config, flag = false) {
+    this.options.push(config(Option.create("boolean", flag)));
+    return this;
+  }
+  /**
+   * @param {Config<Option>} config
+   * @param {boolean=} flag
+   * @returns {CommandBuilder}
+   */
+  addChannelOption(config, flag = false) {
+    this.options.push(config(Option.create("channel", flag)));
+    return this;
+  }
+  /**
+   * @param {Config<Option>} config
+   * @param {boolean=} flag
+   * @returns {CommandBuilder}
+   */
+  addUserOption(config, flag = false) {
+    this.options.push(config(Option.create("user", flag)));
+    return this;
+  }
+  /**
+   * @param {Config<Option>} config
+   * @param {boolean=} flag
+   * @returns {CommandBuilder}
+   */
+  addTextOption(config) {
+    if (this.options.findIndex(e => e.type === "text") !== -1) throw "There can only be 1 text option.";
+    this.options.push(config(new Option("text")));
+    return this;
+  }
+  /**
+   * @param {Config<Option>} config
+   * @param {boolean=} flag
+   * @returns {CommandBuilder}
+   */
+  addChoiceOption(config, flag = false) {
+    this.options.push(config(Option.create("choice", flag)));
+    return this;
+  }
+  /**
+   * @param {string} alias
+   * @returns {CommandBuilder}
+   */
+  addAlias(alias) {
+    if (this.aliases.findIndex(e => e == alias.toLowerCase()) !== -1) return; // alias already added
+    this.aliases.push(alias.toLowerCase());
+    return this;
+  }
+  /**
+   * @param  {...string} aliases
+   * @returns {CommandBuilder}
+   */
+  addAliases(...aliases) {
+    aliases.forEach((a) => this.addAlias(a));
+    return this;
+  }
+  /**
+   * @param {string} cat
+   * @returns {CommandBuilder}
+   */
+  setCategory(cat) {
+    this.category = cat;
+    return this;
+  }
+  /**
+   * @param  {...string} examples
+   * @returns {CommandBuilder}
+   */
+  addExamples(...examples) {
+    this.examples.push(...examples);
+    return this;
   }
 }
-export class CommandRequirement {
 
+export class CommandRequirement {
+  ownerOnly = false;
+  constructor() {
+    this.permissions = [];
+    this.permissionError = "You don't have the needed permissions to run this command!";
+
+    return this;
+  }
+  /**
+   * @param {boolean} bool
+   * @returns {CommandRequirement}
+   */
+  setOwnerOnly(bool) {
+    this.ownerOnly = bool;
+    return this;
+  }
+  /**
+   * @param {string} p Stoat.js permission String
+   * @returns {CommandRequirement}
+   */
+  addPermission(p) {
+    this.permissions.push(p);
+    return this;
+  }
+  /**
+   * @param  {...string} p Stoat.js permission Strings.
+   * @returns {CommandRequirement}
+   */
+  addPermissions(...p) {
+    this.permissions.push(...p);
+    return this;
+  }
+  /**
+   * @returns {string}
+   */
+  getPermissions() {
+    return (this.ownerOnly) ? [...this.permissions, "Owner-only command"] : this.permissions;
+  }
+  /**
+   * @param {string} e
+   * @returns {CommandRequirement}
+   */
+  setPermissionError(e) {
+    this.permissionError = e;
+    return this;
+  }
 }
 export class Option {
+  channelRegex = /^(<|<\\)#(?<id>[A-Z0-9]+)>/;
+  userRegex = /^(<|<\\)@(?<id>[A-Z0-9]+)>/;
+  idRegex = /^(?<id>[A-Z0-9]+)/;
 
+  /**
+   * @callback DynamicDefault
+   * @param {Client, Message}
+   */
+  /** @type DynamicDefault */
+  dynamicDefault;
+
+  /**
+   * @typedef {"string"|"number"|"boolean"|"user"|"channel"|"choice"|"text"} OptionType
+   */
+  /**
+   * @param {OptionType} type
+   */
+  constructor(type = "string") {
+    this.name = null;
+    this.description = null;
+    this.required = false
+    this.id = null;
+    this.uid = Utils.uid();
+
+    /** @type {OptionType} */
+    this.type = type;
+    this.tError = null;
+    this.aliases = [null];
+    this.choices = []; // only for choice options
+    this.translations = {};
+    this.defaultValue = null;
+    this.dynamicDefault = null;
+  }
+  static create(type, flag = false) {
+    return (!flag) ? new Option(type) : new Flag(type);
+  }
+  /**
+   * @param {string} n
+   * @returns {Option}
+   */
+  setName(n) {
+    this.name = n;
+    this.aliases[0] = n;
+    return this;
+  }
+  /**
+   * @param {string} d
+   * @returns {Option}
+   */
+  setDescription(d) {
+    this.description = d;
+    return this;
+  }
+  /**
+   * @param {boolean} r
+   * @returns {Option}
+   */
+  setRequired(r) {
+    this.required = r;
+    return this;
+  }
+  /**
+   * @param {string} id
+   * @returns {Option}
+   */
+  setId(id) {
+    this.id = id;
+    return this;
+  }
+  /**
+   * @param {OptionType} t
+   * @returns {Option}
+   */
+  setType(t) {
+    this.type = t;
+    return this;
+  }
+  /**
+   * @param  {...string} a
+   * @returns {Option}
+   */
+  addFlagAliases(...a) {
+    this.aliases.push(...a);
+    return this;
+  }
+  /**
+   * Only available for choice options!
+   * @param {string} c
+   * @returns {Option}
+   */
+  addChoice(c) {
+    if (this.type != "choice") throw ".addChoice is only available for choice options!";
+    this.choices.push(c);
+    return this;
+  }
+  /**
+   * Only available for choice options!
+   * @param  {...string} cs
+   * @returns {Option}
+   */
+  addChoices(...cs) {
+    if (this.type != "choice") throw ".addChoices is only available for choice options!";
+    cs.forEach(c => this.addChoice(c));
+    return this;
+  }
+  /**
+   * @param {string} value
+   * @returns {Option}
+   */
+  setDefault(value) {
+    this.defaultValue = value;
+    return this;
+  }
+  /**
+   * @param {DynamicDefault} callback
+   * @returns {Option}
+   */
+  setDynamicDefault(callback) {
+    this.dynamicDefault = callback;
+    return this;
+  }
+  /**
+   * Checks wether the given value is considered "empty".
+   * @param {any} i
+   * @returns {boolean}
+   */
+  empty(i) {
+    if (i == undefined) return true;
+    return (!i && !i.contains("0"));
+  }
+  /**
+   * Checks if the input is valid for the current option type.
+   * @param {string} i
+   * @param {Client} client
+   * @param {StoatMessage} msg
+   * @param {OptionType=} type
+   * @returns {boolean}
+   */
+  validateInput(i, client, msg, type) {
+    switch (type || this.type) {
+      case "text":
+      case "string":
+        return !!i; // check if string is empty
+      case "number":
+        return !isNaN(i) && !isNaN(parseFloat(i));
+      case "boolean":
+        return (
+          i == "0" ||
+          i == "1" ||
+          i.toLowerCase() == "true" ||
+          i.toLowerCase() == "false"
+        );
+      case "choice":
+        return this.choices.includes(i);
+      case "user":
+        return this.userRegex.test(i) || this.idRegex.test(i);
+      case "channel":
+        return this.channelRegex.test(i) || this.idRegex.test(i) || client.channels.filter(c => c.name == i).length > 0;
+      case "voiceChannel":
+        if (msg.channel.type === "Group") return true;
+
+        const results = this.channelRegex.exec(i) ?? this.idRegex.exec(i);
+
+        if (msg.channel.serverId === "eval") {  // eval is a dry-run conducted to check the syntax of a channel
+          return (results) ? results.groups["id"] : i;
+        }
+
+        const channel = client.channels.find(
+          c => c.name == i
+            && (msg.channel)
+            ? (c.serverId == msg.channel.serverId || c.serverId == "eval") // eval is a dry-run conducted to check the syntax of a channel
+            : false);
+
+        const cObj = (results) ? client.channels.get(results.groups["id"]) : (channel) ? channel : null;
+        return (cObj) ? cObj.isVoice || cObj.type === "Group" : null;
+      // TODO: Add roles
+    }
+  }
+  /**
+   * Formats the given input into a canonical version, depending on the type.
+   * @param {string} i
+   * @param {Client} client
+   * @param {StoatMessage} msg
+   * @param {OptionType=} type
+   * @returns {string|number|User|Channel}
+   */
+  formatInput(i, client, msg, type) {
+    switch (type || this.type) {
+      case "text":
+      case "string":
+        return i;
+      case "number":
+        return parseFloat(i);
+      case "boolean":
+        return i.toLowerCase() === "true" || i == "1"; // NOTE: this should cover the allowed values from .validateInput()
+      case "choice":
+        return i; // TODO: implement choice type
+      case "user":
+        var rs = this.userRegex.exec(i) ?? this.idRegex.exec(i);
+        rs &&= rs.groups["id"];
+        return rs;
+      case "channel":
+        const results = this.channelRegex.exec(i) ?? this.idRegex.exec(i);
+
+        const channel = client.channels.find(c => c.name == i);
+        return (results) ? results.groups["id"] : (channel) ? channel.id : null;
+      case "voiceChannel":
+        if (msg.channel.type === "Group") return msg.channel.id;
+
+        const r = this.channelRegex.exec(i) ?? this.idRegex.exec(i);
+
+        if (msg.channel.serverId === "eval") {
+          return (r) ? r.groups["id"] : i || null;
+        }
+
+        const c = client.channels.find(c => c.name == i && (c.isVoice) && c.server?.id == msg.channel.server.id);
+        return (r) ? r.groups["id"] : (c) ? c.id : null;
+    }
+  }
+  // TODO: typeErrors, see l. 297 Commands.js
 }
 export class Flag extends Option {
-
+  /**
+   * @param {OptionType} type
+   */
+  constructor(type = "string") {
+    if (type == "text") throw "Flags can't be of type 'text'!";
+    super(type);
+  }
 }
 
 export class CommandHandler extends EventEmitter {
