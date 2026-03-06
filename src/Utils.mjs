@@ -32,4 +32,11 @@ export class Utils {
     }
     return result.trim();
   }
+  /**
+   * Generate a random id. I do not guarantee uniqueness in all cases, it should be fine however (Date + random).
+   * @returns {string}
+   */
+  static uid() {
+    return (new Date().valueOf().toString(36) + Math.random().toString(36).substr(2)).toUpperCase();
+  }
 }

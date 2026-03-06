@@ -228,7 +228,10 @@ export class MessageHandler {
    * @returns {Promise<Message>}
    */
   async sendMessage(channel, message) {
-    // TODO: check permissions
+    if (this.checkPermissions(["SendMessage"], channel).length != 0) {
+      console.log("[MessageHandler] SendMessage: Missing SendMessage permission in `" + channel.id + "`");
+      return;
+    }
     return new Message(await channel.sendMessage(message));
   }
   /**
@@ -238,7 +241,9 @@ export class MessageHandler {
    * @returns {Promise<Message>}
    */
   async sendEmbed(channel, content, options={}) {
-    // TODO: check permissions
+    if (this.checkPermissions(["SendEmbeds", "SendMessage"], channel).length != 0) {
+      return this.sendMessage(channel, message);
+    }
     const message = (typeof content === "object") ? content.embedText : content;
     var embed = this.#createEmbed(message, channel, options);
     if (typeof content === "object") {
@@ -411,9 +416,21 @@ export class Message {
     }
   }
 
+  /**
+   * @param {string|Object} content
+   * @param {boolean} mention
+   * @returns {Promise<Message>}
+   */
   reply(content, mention = false) {
     return this.handler.reply(this.message, content, mention);
   }
+  /**
+   *
+   * @param {string|Object} content
+   * @param {boolean} mention
+   * @param {Object} embedOptions
+   * @returns {Promise<Message>}
+   */
   replyEmbed(content, mention = false, embedOptions={}) {
     return this.handler.replyEmbed(this.message, content, {
       mention,

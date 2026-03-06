@@ -1,9 +1,14 @@
 import { MessageHandler, PageBuilder } from "./MessageHandler.mjs";
 import { Client } from "revolt.js"
 import * as fs from "fs";
+import { Utils } from "./Utils.mjs";
+import { CommandBuilder, CommandHandler } from "./CommandHandler.mjs";
 
 const client = new Client();
 const messages = new MessageHandler(client);
+const commands = new CommandHandler(messages)
+
+console.log(Utils.uid());
 
 client.on("ready", async () => {
   console.log("ready");
@@ -26,7 +31,7 @@ client.on("ready", async () => {
 
 messages.onMessage((message) => {
   if (message.content !== "test") return;
-  const builder = new PageBuilder(["1", "2", "3", "4", "5", "6"]).setMaxLines(1).setForm("Title\n\n$content\n$currentPage/$maxPage");
+  const builder = new PageBuilder(["1", "2", "3", "4", "5", "6"]).setMaxLines(2).setForm("Title\n\n$content\n$currentPage/$maxPage");
   messages.initPagination(builder, message);
 });
 
