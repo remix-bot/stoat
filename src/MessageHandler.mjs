@@ -333,6 +333,70 @@ export class MessageHandler {
       finish();
     }, 60 * 1000);
   }
+
+  /**
+   *
+   * @param {Object[]} categories
+   * @param {string} categories[].reaction
+   * @param {PageBuilder} categories[].content
+   * @param {string} categories[].title
+   * @param {Message} msg
+   * @param {number} [defaultPage]
+   * @returns {Promise<void>}
+   */
+  async initCatalog(categories, msg, defaultPage = 0) {
+    const reactions = categories.map(e => e.reaction);
+    const builders = categories.map(e => e.content);
+    const titles = categories.map(e => e.title);
+
+    const arrows = ["👈", "👉"];
+    const rs = [...reactions, ...arrows];
+    var currPage = 0;
+    var currCat = defaultPage;
+
+    const m = await msg.replyEmbed({
+      embedText: builders[defaultPage].getPage(0),
+      interactions: {
+        restrict_reactions: true,
+        reactions: rs
+      }
+    }, false, {
+      title: titles[currCat]
+    });
+    var timer;
+    const close = m.onReaction(rs, (e, _m) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => finish(), 60 * 1000);
+      if (arrows.includes(e.emoji_id)) {
+        if (builders[currCat].size() === 1) return;
+        let change = (e.emoji_id === arrows[0]) ? -1 : 1;
+        if (currPage + change < 0) currPage = builders[currCat].size() - 1, change = 0;
+        if (!builders[currCat].getPage(currPage + change)) currPage = 0, change = 0;
+        currPage += change;
+        const c = builders[currCat].getPage(currPage);
+        m.editEmbed(c, {
+          title: titles[currCat]
+        });
+        return;
+      }
+      const i = reactions.indexOf(e.emoji_id);
+      currCat = i;
+      currPage = 0;
+      m.editEmbed(builders[i].getPage(0), {
+        title: titles[currCat]
+      });
+    });
+    timer = setTimeout(() => finish(), 60 * 1000);
+    const finish = () => {
+      close();
+      m.editEmbed({
+        embedText: builders[currCat].getPage(currPage) + "\nSession closed - Changing pages **won't work** from here.",
+        content: "Session Closed"
+      }), {
+        colour: "red"
+      };
+    }
+  }
 }
 
 export class Channel {
