@@ -8,6 +8,14 @@ const client = new Client();
 const messages = new MessageHandler(client);
 const commands = new CommandHandler(messages)
 
+commands.addCommand(new CommandBuilder()
+  .setName("test")
+  .addChannelOption((c) =>
+    c.setName("channel")
+      .setRequired(true)
+      .setType("voiceChannel")
+  ));
+
 console.log(Utils.uid());
 
 client.on("ready", async () => {

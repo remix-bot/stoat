@@ -232,7 +232,7 @@ export class Option {
   dynamicDefault;
 
   /**
-   * @typedef {"string"|"number"|"boolean"|"user"|"channel"|"choice"|"text"} OptionType
+   * @typedef {"string"|"number"|"boolean"|"user"|"channel"|"voiceChannel"|"choice"|"text"} OptionType
    */
   /**
    * @param {OptionType} type
@@ -252,6 +252,8 @@ export class Option {
     this.translations = {};
     this.defaultValue = null;
     this.dynamicDefault = null;
+
+    this.tError = null; // custom type error
   }
   static create(type, flag = false) {
     return (!flag) ? new Option(type) : new Flag(type);
@@ -377,6 +379,7 @@ export class Option {
       case "user":
         return this.userRegex.test(i) || this.idRegex.test(i);
       case "channel":
+        if (i === undefined) return false;
         return this.channelRegex.test(i) || this.idRegex.test(i) || client.channels.filter(c => c.name == i).length > 0;
       case "voiceChannel":
         if (msg.channel.type === "Group") return true;
@@ -439,7 +442,24 @@ export class Option {
         return (r) ? r.groups["id"] : (c) ? c.id : null;
     }
   }
-  // TODO: typeErrors, see l. 297 Commands.js
+  /** @type {string} */
+  get typeError() {
+    if (this.tError) return this.tError;
+    switch (this.type) {
+      case "choice":
+        let e = "Invalid value '$currValue'. The option `" + this.name + "` has to be one of the following options: \n";
+        e += "- " + this.choices.join("\n- ");
+        e += "\nSchematic: `$previousCmd <" + this.type + ">`";
+        return e;
+      case "channel":
+        return "Invalid value '$currValue'. The option `" + this.name + "` has to be a channel mention, id, or name (capitalisation matters!). You can specify channel names with multiple words using quotes: \"Channel Name\"\n\nSchematic: `$previousCmd <" + this.type + ">`";
+      default:
+        return "Invalid value '$currValue'. The option `" + this.name + "` has to be of type `" + this.type + "`.\nSchematic: `$previousCmd <" + this.type + ">`";
+    }
+  }
+  set typeError(e) {
+    this.tError = e;
+  }
 }
 export class Flag extends Option {
   /**
@@ -466,6 +486,7 @@ export class CommandHandler extends EventEmitter {
   commands = [];
 
   invalidFlagError = "Invalid flag `$invalidFlag`. It doesn't match any options on this command.\n`$previousCmd $invalidFlag`";
+  textWrapError = "Malformed string `$value`: Missing a closing quote character (`$quote`) after the desired string.";
 
   /**
    *
@@ -590,6 +611,9 @@ export class CommandHandler extends EventEmitter {
     });
     // TODO copied from old code:
     // TODO: fix problems with flags after the last argument (!test string -u <@01G9MCW5KZFKT2CRAD3G3B9JN5>)
+
+    const STRING_TYPES = ["string", "text", "channel", "voiceChannel"];
+
     const usedOptions = [];
     var usedArgumentCount = 0;
     for (let i = 0, argIndex = 1; i < options.length; i++) {
@@ -605,16 +629,108 @@ export class CommandHandler extends EventEmitter {
         }
         previous += " " + args[argIndex];
         var value = args[++argIndex];
-        if ((value || "").startsWith('"') && (["string", "text", "channel", "voiceChannels"].includes(op.type))) {
+        if ((value || "").startsWith('"') && (STRING_TYPES.includes(op.type))) {
           const data = collectArguments(argIndex, value, [value]);
-          if (!data) return this.textWrapError;
+          if (!data) return this.replyHandler(this.textWrapError.replace(/\$value/gi, args.slice(argIndex).join(" ")).replace(/\$quote/gi, args[argIndex].charAt(0)), msg);
           argIndex += data.index - argIndex;
           value = data.args.join(" ").slice(1, data.args.join(" ").length - 1);
         }
         argIndex++;
-        // TODO: continue from l. 643 in Commands.js
+        i--; // check current option next time
+        let valid = op.validateInput(value, this.client, msg.message);
+        if (!valid && (op.required || !op.empty(value))) {
+          let e = op.typeError.replace(/\$previousCmd/gi, previous).replace(/\$currValue/gi, value);
+          return (!external) ? this.replyHandler(e, msg) : e;
+        }
+        usedArgumentCount += 2;
+        previous += " " + value;
+        opts.push({
+          value: op.formatInput(value, this.client, msg.message),
+          name: op.name,
+          id: op.id,
+          uid: op.uid
+        });
+        usedOptions.push(op.uid);
+        continue;
       }
+
+      if (!o) continue; // I'll be honest, I have no idea when this condition is met but I am too scared to touch it.
+      if (opts.findIndex(op => op.uid === o.uid) !== -1) continue; // option has already been processed
+      var value = args[argIndex];
+      if ((args[argIndex] || "").startsWith('"') && (STRING_TYPES.includes(o.type))) {
+        const data = collectArguments(argIndex, args[argIndex], [args[argIndex]]);
+        if (!data) return this.replyHandler(this.textWrapError.replace(/\$value/gi, args.slice(argIndex).join(" ")).replace(/\$quote/gi, args[argIndex].charAt(0)), msg);
+        argIndex += data.index - argIndex;
+        value = data.args.join(" ");
+        value = value.slice(1, value.length - 1);
+      }
+      let valid = o.validateInput(value, this.client, msg.message);
+      if (!valid && o.dynamicDefault) {
+        value = o.dynamicDefault(this.client, msg);
+        value = o.validateInput(value, this.client, msg.message);
+      }
+      if (!valid && (o.required || !o.empty(value))) {
+        // TODO: improve checking on optional options (whatever that means)
+        let e = o.typeError.replace(/\$previousCmd/gi, previous).replace(/\$currValue/gi, value);
+        return (!external) ? this.replyHandler(e, msg) : e;
+      }
+      if (o.empty(value)) value = o.defaultValue;
+
+      opts.push({
+        value: o.formatInput(value, this.client, msg.message),
+        name: o.name,
+        id: o.id,
+        uid: o.uid
+      });
+      usedOptions.push(o.uid);
+      previous += " " + value;
+      argIndex++;
+      usedArgumentCount++;
     }
+    // text option processing (processed last as they are potentially infinite)
+    if (texts.length > 0) {
+      let o = texts[0];
+      let text = args.slice(usedArgumentCount + 1).join(" ");
+      if (o.required && !o.validateInput(text, this.client, msg.message)) {
+        let e = o.typeError.replace(/\$previousCmd/gi, previous).replace(/\$currValue/gi, text);
+        return (!external) ? this.replyHandler(e, msg) : e;
+      }
+      // remove quote text wrapping
+      const quote = (['"', "'"].includes(text.charAt(0))) ? text.charAt(0) : null;
+      if (quote && text.charAt(text.length - 1) == quote) {
+        text = text.slice(1, text.length - 1);
+      }
+      opts.push({
+        name: o.name,
+        value: text,
+        id: o.id,
+        uid: o.uid
+      });
+      usedOptions.push(o.uid);
+    }
+    options.filter(o => !usedOptions.includes(o.uid)).forEach(o => {
+      if (!o.defaultValue) return;
+      opts.push({
+        name: o.name,
+        value: o.defaultValue,
+        id: o.id,
+        uid: o.uid,
+      });
+    });
+    const commandRunData = {
+      command: cmd,
+      commandId: cmd.id,
+      options: opts,
+      message: msg,
+      get: function (oName) {
+        return this.options.find(o => o.name == oName);
+      },
+      getById: function (id) {
+        return this.options.find(o => o.id == id);
+      }
+    };
+    if (!external) this.emit("run", commandRunData);
+    return commandRunData;
   }
   /**
    * @param {CommandBuilder} cmd
