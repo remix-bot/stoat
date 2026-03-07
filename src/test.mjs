@@ -2,7 +2,7 @@ import { MessageHandler, PageBuilder } from "./MessageHandler.mjs";
 import { Client } from "revolt.js"
 import * as fs from "fs";
 import { Utils } from "./Utils.mjs";
-import { CommandBuilder, CommandHandler } from "./CommandHandler.mjs";
+import { CommandBuilder, CommandHandler, PrefixManager } from "./CommandHandler.mjs";
 import { MySqlSettingsManager } from "./Settings.mjs";
 
 const config = JSON.parse(fs.readFileSync("../config.json"));
@@ -12,6 +12,8 @@ const messages = new MessageHandler(client);
 const commands = new CommandHandler(messages);
 
 const settings = new MySqlSettingsManager(config.mysql, "../storage/defaults.json");
+
+commands.setPrefixManager(new PrefixManager(settings));
 
 commands.addCommand(new CommandBuilder()
   .setName("test")

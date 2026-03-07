@@ -2,6 +2,7 @@ import { Utils } from "./Utils.mjs";
 import { EventEmitter } from "node:events";
 import { Message, MessageHandler } from "./MessageHandler.mjs";
 import { Channel, Client, Message as StoatMessage, User } from "revolt.js";
+import { SettingsManager } from "./Settings.mjs";
 
 export class CommandBuilder {
   constructor() {
@@ -48,6 +49,10 @@ export class CommandBuilder {
   setId(id) {
     this.id = id;
     return this;
+  }
+  /** @type {string} */
+  get command() {
+    return (this.parent) ? this.parent.command + " " + this.name : this.name;
   }
   /**
    * @template T
@@ -451,6 +456,7 @@ export class Option {
         e += "- " + this.choices.join("\n- ");
         e += "\nSchematic: `$previousCmd <" + this.type + ">`";
         return e;
+      case "voiceChannel":
       case "channel":
         return "Invalid value '$currValue'. The option `" + this.name + "` has to be a channel mention, id, or name (capitalisation matters!). You can specify channel names with multiple words using quotes: \"Channel Name\"\n\nSchematic: `$previousCmd <" + this.type + ">`";
       default:
@@ -471,6 +477,94 @@ export class Flag extends Option {
   }
 }
 
+export class PrefixManager {
+  /** @type {SettingsManager} */
+  settings;
+  /**
+   * @param {SettingsManager} settings
+   */
+  constructor(settings) {
+    this.settings = settings;
+  }
+  /**
+   * @param {string} serverId
+   * @returns {string}
+   */
+  getPrefix(serverId) {
+    return this.settings.getServer(serverId).get("prefix");
+  }
+}
+export class HelpHandler {
+  /** @type {CommandHandler} */
+  commands;
+  constructor(commands) {
+    this.commands = commands;
+  }
+  /**
+   * @param {string} string
+   * @returns {string}
+   */
+  static capitalise(string) {
+    if (string.length < 1) return string;
+    if (string.length === 1) return string.toUpperCase();
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  }
+  /**
+   *
+   * @param {CommandBuilder} command
+   * @param {Message} msg
+   * @returns {string}
+   */
+  commandDescription(command, _msg) {
+    return command.description;
+  }
+  /**
+   * @param {CommandBuilder} cmd
+   * @param {Message} msg
+   * @returns {string}
+   */
+  commandUsage(cmd, msg) {
+    if (cmd.subcommands.length > 0) {
+      return cmd.command + " <" + cmd.subcommands.map(e => e.name).join(" | ") + "> [...]".trim();
+    }
+    let options = this.commands.format("$prefix" + cmd.command, msg.message.server.id);
+    cmd.options.forEach(o => {
+      if (o.type === "text") return;
+      if (o instanceof Flag)
+        return options += (o.type === "choice") ? "-" + o.aliases[0] + " <" + o.choices.join(" | ") + ">" : " -" + o.aliases[0] + " '" + o.type + "'";
+      options += (o.type === "choice") ? " <" + o.choices.join(" |") + ">" : " '" + o.name + ": " + o.type + "'";
+    });
+    let o = cmd.options.find(e => e.type === "text");
+    if (o) options += "'" + o.name + ": " + o.type + "'";
+    return options.trim();
+  }
+  /**
+   * @param {CommandBuilder} command
+   * @param {Message} msg
+   * @returns {string}
+   */
+  getCommandHelp(command, msg) {
+    let content = `# ${capitalise(command.name)}\n`;
+    content += this.commandDescription(command, msg) + "\n\n";
+    content += "#### Usage: \n💻 `" + this.commandUsage(command, msg)
+    if (command.examples.length > 0) content += "Example(s): \n- `" + command.examples.map(e => this.commands.format(e, msg.message.server.id)).join("`\n- `") + "`\n\n";
+    if (cmd.aliases.length > 1) {
+      content += "#### Aliases: \n";
+      cmd.aliases.forEach(alias => {
+        content += "- " + alias + "\n";
+      });
+      content += "\n";
+    }
+    if (command.subcommands.length > 0) {
+      content += "#### Subcommands: \n";
+      command.subcommands.forEach(s => {
+        content += "- " + s.name + ": " + this.commandDescription(s, msg).split("\n")[0] + ((s.options.length > 0) ? "; (`" + s.options.length + " option(s)`)" : "") + "\n";
+      });
+      content += "\n";
+    } // TODO: continue from l. 841
+  }
+}
+
 export class CommandHandler extends EventEmitter {
   onPing = null;
   pingPrefix = true;
@@ -480,6 +574,10 @@ export class CommandHandler extends EventEmitter {
   messages;
   /** @type {Client} */
   client;
+  /** @type {PrefixManager} */
+  prefixes;
+  /** @type {HelpHandler} */
+  helpHandler;
 
   commandNames = [];
   /** @type {CommandBuilder[]} */
@@ -499,6 +597,7 @@ export class CommandHandler extends EventEmitter {
     this.messages = handler;
     this.client = handler.client;
     this.prefix = prefix;
+    this.helpHandler = new HelpHandler(this);
 
     this.helpCommand = "help";
 
@@ -514,8 +613,20 @@ export class CommandHandler extends EventEmitter {
    * @returns {string}
    */
   getPrefix(serverId) {
-    // TODO:
-    return this.prefix; // preliminary
+    return this.prefixes.getPrefix(serverId);
+  }
+  /**
+   * @param {boolean} bool
+   */
+  setPingPrefix(bool) {
+    this.pingPrefix = bool;
+  }
+
+  /**
+   * @param {PrefixManager} manager
+   */
+  setPrefixManager(manager) {
+    this.prefixes = manager;
   }
 
   /**
@@ -555,6 +666,18 @@ export class CommandHandler extends EventEmitter {
 
     if (args[0] === this.helpCommand) {
       // TODO: help command
+      if (!args[1]) {
+        // TODO: custom help handling?
+      }
+      if (args.length > 1) {
+        // TODO: native help pages
+      }
+
+      if (args.length <= 2) {
+        let idx = this.commands.findIndex(e => e.aliases.filter(al => al.toLowerCase() === args[1].toLowerCase()).length > 0);
+        if (idx === -1) return this.replyHandler("Unknown command `$prefix" + args[1] + "`!", msg);
+
+      }
     }
 
     if (!this.commandNames.includes(args[0].toLowerCase())) {
