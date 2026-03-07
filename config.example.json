@@ -8,8 +8,11 @@
     "heartbeatInterval": 30000
   },
   "prefix": "your desired prefix (such as %)",
-  "presenceInterval": null,
-  "presenceContents": [],
+  "presence": {
+    "status": "Online",
+    "contents": ["Ping for prefix", "By RedTech | NoLogicAlan", "Servers: $serverCount"],
+    "interval": 7000
+  },
   "spotify": {
     "clientId": "your spotify client id",
     "clientSecret": "your spotify client secret"

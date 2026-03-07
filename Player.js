@@ -5,6 +5,7 @@ const { PassThrough } = require("stream");
 const { spawn } = require("child_process");
 const meta = require("./src/probe.js");
 const fs = require('fs');
+const { Utils } = require("./src/Utils.mjs");
 
 class RevoltPlayer extends EventEmitter {
   constructor(token, opts) {
@@ -103,15 +104,6 @@ class RevoltPlayer extends EventEmitter {
     });
     if (!top) return this.data.queue.push(data);
     return this.data.queue.unshift(data);
-  }
-  prettifyMS(milliseconds) {
-    if (!milliseconds || isNaN(milliseconds) || milliseconds < 0) return "0:00";
-    return new Date(milliseconds).toISOString().slice(
-      // if 1 hour passed, show the hour component,
-      // if 1 hour hasn't passed, don't show the hour component
-      milliseconds > 3600000 ? 11 : 14,
-      19
-    );
   }
 
   // music controls
@@ -249,7 +241,7 @@ class RevoltPlayer extends EventEmitter {
     if (typeof duration === "object") {
       return duration.timestamp;
     } else {
-      return this.prettifyMS(duration);
+      return Utils.prettifyMS(milliseconds, "player");
     }
   }
   getCurrentDuration() {
