@@ -7,7 +7,7 @@ module.exports = {
   run: async function(message) {
     const p = await this.getPlayer(message);
     if (!p) return;
-    let res = p.shuffle() || `:white_check_mark: Shuffled!`;
-    message.channel.sendMessage(this.em(res, message));
+    let res = p.shuffle() || `✅ Shuffled!`;
+    message.channel.sendEmbed(res);
   }
 }

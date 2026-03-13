@@ -4,12 +4,14 @@ const { Revoice } = require("revoice.js");
 const { Client } = require("revolt.js");
 const path = require("path");
 const fs = require("fs");
-const { SettingsManager } = require("./settings/Settings.js");
+const { SettingsManager, RemoteSettingsManager } = require("./settings/Settings.js");
 if (!process.execArgv.includes("--inspect")) require('console-stamp')(console, 'HH:MM:ss.l');
 const YTDlpWrap = require("yt-dlp-wrap-extended").default;
+const { Innertube, Platform } = require("youtubei.js");
+const { generate } = require("youtube-po-token-generator");
 
 const Genius = require("genius-lyrics");
-const Spotify = require('spotifydl-core').default;
+const Spotify = require("spotifydl-core").default;
 
 let config;
 if (fs.existsSync("./config.json")) {
@@ -22,8 +24,9 @@ if (fs.existsSync("./config.json")) {
 
 class Remix {
   constructor() {
-    this.client = new Client(config["revolt.js"]);
-    this.client.config = config;
+    this.client = new Client({
+      ...config["stoat.js"],
+    });
     this.config = config;
     this.modules = require("./storage/modules.json");
     this.spotifyConfig = config.spotify;
@@ -32,12 +35,15 @@ class Remix {
 
     this.memberMap = new Map();
     this.userCache = []
-
+    this.cachedGuilds = []
     this.observedUsers = new Map();
     this.observedReactions = new Map();
 
-    this.settingsMgr = new SettingsManager();
-    this.settingsMgr.loadDefaultsSync("./storage/defaults.json");
+    /*this.settingsMgr = new SettingsManager();
+    this.settingsMgr.loadDefaultsSync("./storage/defaults.json");*/
+    // updated settings manager based on a mysql database:
+    // TODO: add self-hosting instr
+    this.settingsMgr = new RemoteSettingsManager(this.config.mysql, "./storage/defaults.json");
 
     this.uploader = new Uploader(this.client);
 
@@ -45,6 +51,8 @@ class Remix {
     this.spotify = new Spotify(this.spotifyConfig);
 
     this.presence = "Online";
+
+    this.initInnertube();
 
     this.i18n = require("i18next");
     var languages = fs.readdirSync(path.join(__dirname, "./storage/locales/bot")).map(f => f.replace(".json", ""));
@@ -75,17 +83,20 @@ class Remix {
       const mod = { instance: new (require(m.index))(this), c: require(m.index) };
       this.loadedModules.set(m.name, mod);
     });
-    console.log(`Loaded ${this.loadedModules.size} module(s): ${Array.from(this.loadedModules).map(m=>m[0]).join(", ")}`)
+    console.log(`Loaded ${this.loadedModules.size} module(s): ${Array.from(this.loadedModules).map(m => m[0]).join(", ")}`)
 
     this.stats = require("./storage/stats.json");
+    this.client.cachedGuilds = this.cachedGuilds
 
     var reconnects = [];
     this.client.on("ready", () => {
       const t = Date.now();
-      reconnects.push({ time: t, timeout: setTimeout(() => {
-        const idx = reconnects.find(e => e.time == t);
-        reconnects.splice(idx, 1);
-      }, 20000)})
+      reconnects.push({
+        time: t, timeout: setTimeout(() => {
+          const idx = reconnects.find(e => e.time == t);
+          reconnects.splice(idx, 1);
+        }, 20000)
+      })
       if (reconnects.length > 3) {
         console.log("Too many reconnects. Restarting.");
         reconnects = [];
@@ -102,27 +113,34 @@ class Remix {
       console.log("Logged in as " + this.client.user.username);
     });
     this.client.once("ready", () => {
-      this.mapMembers().then(() => {
-        let state = 0;
-        let def = ["Ping for prefix", "By RedTech | NoLogicAlan", "Servers: $serverCount"];
-        let texts = config.presenceContents || def;
-        if (texts.length == 0) texts = def;
-        setInterval(() => {
-          this.client.user.edit({
-            status: {
-              text: texts[state].replace(/\$serverCount/g, this.client.servers.size()),
-              presence: this.presence
-            },
-          });
-          if (state == texts.length - 1) {state = 0} else {state++}
-        }, this.presenceInterval);
-      });
+      let state = 0;
+      let def = ["Ping for prefix", "By RedTech | NoLogicAlan", "Servers: $serverCount"];
+      let texts = config.presenceContents || def;
+      if (texts.length == 0) texts = def;
+      setInterval(() => {
+        this.client.user.edit({
+          status: {
+            text: texts[state].replace(/\$serverCount/g, this.client.servers.size()),
+            presence: this.presence
+          },
+        });
+        if (state == texts.length - 1) { state = 0 } else { state++ }
+      }, this.presenceInterval);
 
       if (!this.config.fetchUsers) return;
-      this.fetchUsers();
+      this.fetchUsers(); // TODO: find out why I did this, there is a reason (Mabye caching?) but I have no clue and am scared to remove this
+      // future me here: most likely caching. This shouldn't be the reason for rate limits.
       setInterval(() => this.fetchUsers, 60 * 1000 * 30);
+
     });
     this.client.on("messageCreate", (m) => {
+      if (!this.cachedGuilds.includes(m.channel.serverId) && config.cache.guilds.enabled) {
+        if (this.cachedGuilds.length > config.cache.guilds.max) this.cachedGuilds.shift()
+        if (!this.cachedGuilds[m.channel.serverId]) this.cachedGuilds.push(m.channel.serverId);
+      }
+      /*if ((config?.cache.members.enabled) && this.userCache > (config?.cache.members.max ?? 10000)) this.userCache.shift()
+      const dupCheck = this.userCache.find(user => m.authorId == user.id)
+      if (!dupCheck) this.userCache.push({ id: m.authorId, name: m.author.username, discrm: m.author.discriminator })*/
       if (!this.observedUsers.has(m.authorId + ";" + m.channelId)) return;
       this.observedUsers.get(m.authorId + ";" + m.channelId)(m);
     });
@@ -137,22 +155,7 @@ class Remix {
     }
     this.client.on("messageReactionAdd", reactionUpdate);
     this.client.on("messageReactionRemove", reactionUpdate);
-    this.client.on("serverMemberJoin", (member) => { // TODO: test
-      const data = this.memberMap.get(member.server.id);
-      if (!data) return;
-      data.push(member.id.user);
-      this.memberMap.set(member.server.id, data);
 
-      const user = member.user;
-      if (this.userCache.findIndex(e => e.id === user.id) !== -1) return;
-      this.userCache.push({ id: user.id, name: user.username, discrim: user.discriminator})
-    });
-    this.client.on("serverCreate", (server) => {
-      console.log("Mapping " + server.id);
-      server.fetchMembers().then(members => {
-        this.#mapServer(members);
-      });
-    });
     this.client.on("serverDelete", (server) => { // TODO: update to serverLeave and serverDelete once rjs implements it
       if (!this.memberMap.has(server.id)) return;
       console.log("Deleting " + server.id);
@@ -176,7 +179,7 @@ class Remix {
     this.handler.setRequestCallback((...data) => this.request(...data));
     this.handler.setOnPing(msg => {
       let pref = this.handler.getPrefix(msg.channel.serverId);
-      let m = this.iconem(msg.channel.server.name, this.t("commands.ping", msg, {prefix: "`" + pref + "`", helpCmd: "`" + pref + "help`"}), (msg.channel.server.icon) ? "https://autumn.revolt.chat/icons/" + msg.channel.server.icon._id : null, msg);
+      let m = this.iconem(msg.channel.server.name, this.t("commands.ping", msg, { prefix: "`" + pref + "`", helpCmd: "`" + pref + "help`" }), (msg.channel.server.icon) ? "https://autumn.revolt.chat/icons/" + msg.channel.server.icon._id : null, msg);
       msg.reply(m, false)
     });
     this.handler.setPaginationHandler((message, form, contents) => {
@@ -200,6 +203,7 @@ class Remix {
       const file = path.join(dir, commandFile);
       const cData = require(file);
       const builder = (typeof cData.command == "function") ? cData.command.call(this) : cData.command;
+      if (!builder) return console.warn("No builder returned. Skipping '" + commandFile + "'");
       if (cData.export) this[cData.export.name] = cData.export.object;
       this.handler.addCommand(builder);
       this.commandFiles.set(builder.uid, file);
@@ -217,22 +221,23 @@ class Remix {
           return runFc.call(this, data.message, data).catch(e => {
             const id = this.guid();
             console.log("Error running command; error id #" + id, e);
-            data.message.reply({ content: null, embeds: [this.embedify("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", "red")]});
+            data.message.reply({ content: null, embeds: [this.embedify("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", "red")] });
           });
         }
+
         try {
           runFc.call(this, data.message, data);
-        } catch(e) {
+        } catch (e) {
           const id = this.guid();
           console.log("Error running command; error id #" + id, e);
-          data.message.reply({ content: null, embeds: [this.embedify("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", "red")]});
+          data.message.reply({ content: null, embeds: [this.embedify("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", "red")] });
         }
       }
     });
     console.log("Done!\n");
 
     if (process.argv[2] == "usage") {
-      fs.writeFile("cmdUsage.md", this.handler.generateCommandOverviewMD(),()=>{ console.log("Done!"); process.exit(1) });
+      fs.writeFile("cmdUsage.md", this.handler.generateCommandOverviewMD(), () => { console.log("Done!"); process.exit(1) });
     } else if (process.argv[2] == "sreload") {
       this.settingsMgr.syncDefaults(); // updates all guilds if they are missing defaults
       this.settingsMgr.save();
@@ -255,18 +260,18 @@ class Remix {
 
     try {
       this.comHash = require('child_process')
-          .execSync('git rev-parse --short HEAD', {cwd: __dirname})
-          .toString().trim();
+        .execSync('git rev-parse --short HEAD', { cwd: __dirname })
+        .toString().trim();
       this.comHashLong = require('child_process')
-          .execSync('git rev-parse HEAD', {cwd: __dirname})
-          .toString().trim();
-    } catch(e) {
+        .execSync('git rev-parse HEAD', { cwd: __dirname })
+        .toString().trim();
+    } catch (e) {
       console.log("Git comhash error");
       this.comHash = "Newest";
       this.comHashLong = null;
     }
 
-    this.comLink = (this.comHashLong) ? "https://github.com/remix-bot/revolt/tree/" + this.comHashLong : "https://github.com/remix-bot/revolt";
+    this.comLink = (this.comHashLong) ? "https://github.com/remix-bot/stoat/tree/" + this.comHashLong : "https://github.com/remix-bot/stoat";
     this.playerMap = new Map();
     this.currPort = -1;
     this.channels = [];
@@ -279,7 +284,7 @@ class Remix {
     }
 
     Object.defineProperty(this.client, "allServers", {
-      get: function() {
+      get: function () {
         var servers = [];
         var iterator = this.servers.entries();
         for (let v = iterator.next(); !v.done; v = iterator.next()) {
@@ -303,6 +308,84 @@ class Remix {
     await Promise.allSettled(promises);
     console.log(this.client.users.size);
   }
+  async generateVisitorData() {
+    return new Promise((res, _rej) => {
+      generate().then(result => {
+        console.log("[Innertube init] VisitorData and PO Token generated: ", result);
+        return res(result.visitorData);
+      }).catch(() => { // failed for some reason, retry
+        console.log("[Innertube init] VisitorData generation failed. Retrying in 2 seconds.");
+        setTimeout(async () => {
+          return res(await this.generateVisitorData());
+        }, 2000);
+      });
+    });
+  }
+  async getVisitorData() {
+    const regenerate = async () => {
+      console.log("[Innertube init] generating VisitorData");
+      const data = {
+        visitorData: await this.generateVisitorData(),
+        created: Date.now()
+      }
+      fs.writeFileSync("./.ytcache/visitor_data.json", JSON.stringify(data));
+      return data.visitorData;
+    }
+    if (!fs.existsSync("./.ytcache/visitor_data.json")) {
+      return await regenerate();
+    }
+    const data = JSON.parse(fs.readFileSync("./.ytcache/visitor_data.json"));
+    if (data.created < Date.now() - 1000 * 60 * 60 * 24 * 4) { // regenerate every 4 days, interval completely arbitrary and subject to change.
+      console.log("[Innertube init] VisitorData expired");
+      return await regenerate();
+    }
+    return data.visitorData;
+  }
+  async initInnertube() {
+    // Tell youtubei.js how to evaluate YouTube's obfuscated JS for URL deciphering.
+    Platform.shim.eval = async (data, env) => { // ai-generated by alan, I won't touch it until it breaks
+      const properties = [];
+      if (env.n) properties.push(`n: exportedVars.nFunction("${env.n}")`);
+      if (env.sig) properties.push(`sig: exportedVars.sigFunction("${env.sig}")`);
+      const code = `${data.output}\nreturn { ${properties.join(', ')} }`;
+      return new Function(code)();
+    };
+
+    this.innertube = await Innertube.create({
+      retrieve_player: true,
+      generate_session_locally: true,
+      // Using Firefox User Agent
+      user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
+      client_type: 'WEB',
+      // Visitor data helps stabilize the v1/player 400 errors
+      visitor_data: await this.getVisitorData()//'CgtSdl9RSl9uX3dfdyiAgpWyBg%3D%3D' // TODO: generate automatically
+    });
+
+    this.innertube.session.on('auth-pending', (data) => {
+      console.log(`\n[!] YOUTUBE LOGIN: Go to ${data.verification_url} and enter: ${data.user_code}\n`);
+    });
+
+    this.innertube.session.on('auth', (data) => {
+      console.log('[Player] youtubei.js successfully authenticated.');
+      fs.writeFileSync('./.ytcache/yt_auth.json', JSON.stringify(data.credentials));
+    });
+
+    this.innertube.session.on('update-credentials', (data) => {
+      fs.writeFileSync('./.ytcache/yt_auth.json', JSON.stringify(data.credentials));
+    });
+
+    if (fs.existsSync('./.ytcache/yt_auth.json')) {
+      const creds = JSON.parse(fs.readFileSync('./.ytcache/yt_auth.json'));
+      try {
+        await this.innertube.session.signIn(creds);
+      } catch (e) {
+        console.error("[Player] Session expired, re-authenticating...");
+        await this.innertube.session.signIn();
+      }
+    } else {
+      await this.innertube.session.signIn();
+    }
+  }
   #mapServer(members) {
     if (!members) return;
     const users = members.users;
@@ -315,58 +398,30 @@ class Remix {
       this.userCache.push({ id: user.id, name: user.username, discrim: user.discriminator})
     });
   }
-  mapMembers() {
-    return new Promise(async res => {
-      if (!this.config.mapMembers) return res();
-      const evaluate = (data) => {
-        data = data.map(v => v.value);
-        data.forEach(members => {
-          this.#mapServer(members);
-        });
+
+  util = { // required as a property to be copied into the context in the eval command by object.assign
+    mapToArray(map) {
+      const iterator = map.entries();
+
+      const arr = []
+      for (const value of iterator) {
+        arr.push(value);
       }
 
-      const promises = [];
-      const servers = this.client.allServers;
-      console.log("Started mapping server members");
-      for (let i = 0; i < servers.length; i++) {
-        if (i % 30 === 0 && i !== 0) {
-          evaluate(await Promise.allSettled(promises));
-          console.log("Mapped " + Math.round((i / servers.length * 100)) + "%")
-          promises.length = 0;
-          await Remix.sleep(1200);
-        }
-        promises.push(servers[i].fetchMembers());
-      }
-      if (promises.length !== 0) evaluate(await Promise.allSettled(promises));
-      console.log("Finished mapping server members!");
-      /*await Remix.sleep(5000);
-      console.log("Started mapping discriminators");
-      promises.length = 0; // clear array
-      const mapUsers = async (p) => { // run in async scope
-        p = p.map(v => v.value);
-        if (!p) return;
-        p.forEach(u => {
-          const idx = this.userCache.findIndex(e => e.id == u._id);
-          if (idx === -1) throw "Impossible case detected";
-          this.userCache[idx].discrim = u.discriminator;
-          this.userCache[idx].displayName = u.display_name;
-        });
-      }
-      for (let i = 0; i < this.userCache.length; i++) {
-        if (i % 18 === 0 && i !== 0) {
-          mapUsers(await Promise.allSettled(promises));
-          console.log("Mapped " + Math.round((i / this.userCache.length * 100)) + "%");
-          promises.length = 0;
-          await Remix.sleep(10000);
-        }
-        if (this.userCache[i].discrim) continue;
-        promises.push(this.client.api.get("/users/" + this.userCache[i].id))
-      }
-      if (promises.length !== 0) mapUsers(await Promise.allSettled(promises));
-      console.log("Finished discriminator mapping");*/
-      res();
-    });
+      return arr;
+    },
+    connectionsByType: function (connections) {
+      this.mapToArray(connections).map(e => e[1] = e[1][0]);
+    }
   }
+
+  guid() {
+    var S4 = function () {
+      return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
+    };
+    return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
+  }
+
   mutualServers(user) {
     const iterator = this.memberMap.entries();
     const mutual = [];
@@ -376,7 +431,31 @@ class Remix {
     return mutual;
   }
   getSharedServers(user) {
-    var servers = this.mutualServers(user.id).map(s => this.client.servers.get(s));
+    return new Promise(async (res, _rej) => {
+      const data = await user.fetchMutual();
+      if (!data) res(null);
+      var servers = data.servers.map(s => this.client.servers.get(s));
+
+      servers = servers.map((server) => {
+        const icon = () => {
+          try {
+            return server.animatedIconURL || server.iconURL || null
+          } catch (e) {
+            return null;
+          }
+        }
+        return {
+          name: server.name,
+          id: server.id,
+          icon: icon(),
+          voiceChannels: server.channels.filter(c => c.type == "VoiceChannel").map(c => ({ name: c.name, id: c.id, icon: c.animatedIconURL || c.iconURL || null })) // TODO: fetch users as well
+        }
+      });
+      res(servers);
+    });
+
+    // legacy code: fetchMutual wasn't available for bots back then
+    /*var servers = this.mutualServers(user.id).map(s => this.client.servers.get(s));
     servers = servers.map((server) => {
       const icon = () => {
         try {
@@ -392,7 +471,7 @@ class Remix {
         voiceChannels: server.channels.filter(c => c.type == "VoiceChannel").map(c => ({ name: c.name, id: c.id, icon: c.animatedIconURL || c.iconURL || null })) // TODO: fetch users as well
       }
     });
-    return servers;
+    return servers;*/
   }
   getVoiceData(server) {
     return new Promise(async res => {
@@ -412,32 +491,42 @@ class Remix {
     });
   }
   request(d) {
-    switch(d.type) {
+    switch (d.type) {
       case "prefix":
         return this.settingsMgr.getServer(d.data.channel.serverId).get("prefix");
     }
   }
-  getPlayer(message, promptJoin=true, verifyUser=true) {
+  checkVoiceChannels(message) {
+    if (!message) return null;
+    const user = message.authorId;
+    var id = null;
+    message.channel.server.channels.forEach((c) => {
+      if (!c.isVoice) return;
+      if (!c.voiceParticipants.has(user)) return;
+      id = c.id;
+    });
+    return id;
+  }
+  getPlayer(message, promptJoin = true, verifyUser = true) {
     var askVC = (msg) => {
       return new Promise(res => {
-        const channels = [];
         if (msg.channel.type === "Group") {
           return this.joinChannel(msg, msg.channel.id, (p) => {
-            p.once("roomfetched", () => { // TODO: implement this in %join
-              if (p.connection.users.find(u => u.id == msg.authorId)) return;
+            if (!p.connection.users.find(u => u.id == message.author.id)) {
               msg.reply(this.em("You don't seem to be connected to <#" + msg.channel.id + ">. Did you forget to join?", msg), true);
-            });
+            }
+            /*p.once("roomfetched", () => { // TODO: implement this in %join
+            console.log("room fetched");
+            if (p.connection.users.find(u => u.id == msg.authorId)) return;
+            msg.reply(this.em("You don't seem to be connected to <#" + msg.channel.id + ">. Did you forget to join?", msg), true);
+            });*/
             res(msg.channel.id);
           }, () => { m.edit(this.em("Something went wrong. Unable to join <#" + msg.channel.id + ">. Do I have the needed permission?", m)); return res(false); });
         }
-        var iterator = msg.channel.server.channels.entries();
-        for (let v = iterator.next(); !v.done; v = iterator.next()) {
-          if (v.value[1].type != "VoiceChannel") continue;
-          channels.push(v.value[1]);
-        }
+        const channels = msg.channel.server.channels.filter(c => c.isVoice);
         if (channels.length != 0) { // TODO: translate
           var channelSelection = "Please select one of the following channels by clicking on the reactions below\n\n";
-          var reactions = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];//[":one:",":two:",":three:",":four:",":five:",":six:",":seven:",":eight:",":nine:"];
+          var reactions = ["🥇", "🥈", "🥉", "🥇", "🥈", "🥉", "🥇", "🥈", "🥉",];//[":one:",":two:",":three:",":four:",":five:",":six:",":seven:",":eight:",":nine:"];
           channels.slice(0, 9).forEach((c, i) => {
             channelSelection += (i + 1) + ". <#" + c.id + ">\n";
           });
@@ -456,12 +545,16 @@ class Remix {
             const idx = reactions.findIndex(r => r == e.emoji_id);
             const c = channels[idx];
             this.joinChannel(msg, c.id, (p) => {
-              p.once("roomfetched", () => { // TODO: implement this in %join
+              if (!p.connection.users.find(u => u.id == message.author.id)) {
+                msg.reply(this.em("You don't seem to be connected to <#" + c.id + ">. Did you forget to join?", msg), true);
+              }
+              /*p.once("roomfetched", () => { // TODO: implement this in %join
+               console.log("room fetched");
                 if (p.connection.users.find(u => u.id == msg.authorId)) return;
                 msg.reply(this.em(this.t("voice.join.warning.nc", m, {channel: "<#" + c.id + ">"}), msg), true);
-              });
+              );*/
               res(c.id);
-            }, () => { m.edit(this.em(this.t("voice.join.error.perms", m, {channel: "<#" + c.id + ">"}), m)); return res(false); });
+            }, () => { m.edit(this.em(this.t("voice.join.error.perms", m, { channel: "<#" + c.id + ">" }), m)); return res(false); });
 
             this.unobserveUser(observer);
             this.unobserveReactions(roid);
@@ -479,7 +572,10 @@ class Remix {
             const channel = this.handler.formatString(m.content, m, "voiceChannel");
             this.unobserveUser(observer);
             this.unobserveReactions(roid);
-            this.joinChannel(m, channel, () => {
+            this.joinChannel(m, channel, (p) => {
+              if (!p.connection.users.find(u => u.id == message.author.id)) {
+                msg.reply(this.em("You don't seem to be connected to <#" + channel + ">. Did you forget to join?", msg), true);
+              }
               res(channel);
             }, () => { join(msg); });
           });
@@ -488,10 +584,25 @@ class Remix {
       });
     }
     return new Promise(async res => {
-      const user = this.revoice.getUser(message.authorId).user;
+      const user = this.revoice.getUser(message.authorId).user; // TODO: search through channels of server
       var cid = (user) ? user.connectedTo : null;
       if (message.channel.type === "Group") cid = message.channel.id;
+      if (!cid) {
+        cid = this.checkVoiceChannels(message);
+      }
       var player = this.playerMap.get(cid);
+      if (!player && cid) {
+        await (new Promise((r => {
+          this.joinChannel(message, cid, (p) => {
+            if (!p.connection.users.find(u => u.id == message.author.id)) {
+              message.reply(this.em("You don't seem to be connected to <#" + cid + ">. Did you forget to join?", message), true);
+            }
+            r(cid);
+          }, () => { message.reply("Something went wrong while trying to join your channel. Maybe try the join command manually.") });
+        })));
+        player = this.playerMap.get(cid);
+        return res(player);
+      }
       if (!((verifyUser) ? user : true) || !cid || !player) {
         if (!promptJoin) {
           message.reply(this.em(this.t("voice.join.error.dc", message), message), false);
@@ -508,7 +619,7 @@ class Remix {
   observeUserVoice(user, cb) {
     const cid = Math.random();
     const arr = (this.observedVoiceUsers.get(user) || []);
-    arr.push({ cid, cb});
+    arr.push({ cid, cb });
     this.observedVoiceUsers.set(user, arr);
     return user + ";" + cid;
   }
@@ -549,12 +660,12 @@ class Remix {
     return this.observedReactions.delete(i);
   }
 
-  paginate(text, maxLinesPerPage=5, page=0) {
+  paginate(text, maxLinesPerPage = 5, page = 0) {
     page -= 1;
     const lines = text.split("\n");
     return lines.slice(maxLinesPerPage * page, maxLinesPerPage * page + maxLinesPerPage);
   }
-  pages(text, maxLinesPerPage=2) {
+  pages(text, maxLinesPerPage = 2) {
     const lines = (Array.isArray(text)) ? text : text.split("\n");
     const pages = [];
     for (let i = 0, n = 0; i < lines.length; i++, (i % maxLinesPerPage == 0) ? n++ : n) {
@@ -564,14 +675,14 @@ class Remix {
     }
     return pages;
   }
-  pagination(form, content, message, maxLinesPerPage=2) {
+  pagination(form, content, message, maxLinesPerPage = 2) {
     if (!message.channel.havePermission("React")) {
       if (!message.channel.havePermission("SendMessage")) return message.member.user.openDM().then(dm => {
-        dm.sendMessage({ content: " ", embeds: [this.embedify("I am unable to send messages in <#" + message.channelId + ">. Please contact a server administrator and grant me the \"SendMessage\" permission.")]})
-      }).catch(() => {});
+        dm.sendMessage({ content: " ", embeds: [this.embedify("I am unable to send messages in <#" + message.channelId + ">. Please contact a server administrator and grant me the \"SendMessage\" permission.")] })
+      }).catch(() => { });
       return message.reply({ content: " ", embeds: [this.embedify("I need reaction permissions to work. Please contact a server administrator to address this.")] }, true);
     }
-    const arrows = [ "⬅️", "➡️" ];
+    const arrows = [ "👈", "👉" ];
     var page = 0;
     const paginated = this.pages(content, maxLinesPerPage);
     form = form.replace(/\$maxPage/gi, paginated.length);
@@ -603,21 +714,21 @@ class Remix {
         const c = paginated[page].join("\n");
         ms.edit(messageFormatter(c));
         clearTimeout(currTime);
-        currTime = setTimeout(() => { finish() }, 60*1000);
+        currTime = setTimeout(() => { finish() }, 60 * 1000);
       });
       const finish = () => {
         this.unobserveReactions(oid);
         m.edit({
           content: this.t("pagination.embed.sclosedTitle", m),
           embeds: [
-            this.embedify(this.t("pagination.embed.sclosedContent", m, { content: lastEmbed.description, interpolation: { escapeValue: false }}), "red")
+            this.embedify(this.t("pagination.embed.sclosedContent", m, { content: lastEmbed.description, interpolation: { escapeValue: false } }), "red")
           ]
         });
       }
-      var currTime = setTimeout(() => { finish() }, 60*1000);
+      var currTime = setTimeout(() => { finish() }, 60 * 1000);
     });
   }
-  reactionCollector(msg, reactions, onReaction=()=>{}, time=60*1000, finishCb=()=>{}) {
+  reactionCollector(msg, reactions, onReaction = () => { }, time = 60 * 1000, finishCb = () => { }) {
     var timer = setTimeout(() => finish(), time);
     const oid = this.observeReactions(msg, reactions, (e, msg) => {
       onReaction(e, msg);
@@ -629,13 +740,13 @@ class Remix {
       finishCb();
     }
   }
-  catalog(msg, categories, defaultPage=0, maxLinesPerPage) {
+  catalog(msg, categories, defaultPage = 0, maxLinesPerPage) {
     const reactions = categories.map(c => c.reaction);
     const pages = categories.map(c => this.pages(c.content, maxLinesPerPage));
     const forms = categories.map(c => c.form);
     const titles = categories.map(c => c.title);
 
-    const arrows = ["⬅️", "➡️"];
+    const arrows = ["👈", "👉"];
     const rs = [...reactions, ...arrows];
     var currPage = 0;
     var currCat = defaultPage;
@@ -675,11 +786,11 @@ class Remix {
         currCat = i;
         currPage = 0;
         m.edit(messageFormatter(pages[i][0].join("\n")));
-      }, 60*1000, () => {
+      }, 60 * 1000, () => {
         m.edit({
           content: this.t("pagination.embed.sclosedTitle", m),
           embeds: [
-            this.embedify(this.t("pagination.embed.sclosedContent", m, { content: lastEmbed.description, interpolation: { escapeValue: false }}), "red")
+            this.embedify(this.t("pagination.embed.sclosedContent", m, { content: lastEmbed.description, interpolation: { escapeValue: false } }), "red")
           ]
         });
       });
@@ -700,13 +811,7 @@ class Remix {
     const pref = this.handler.getPrefix(msg.channel.serverId);
     const categories = [{ // TODO: improve this text
       reaction: "🏠",
-      content: [`# Home\n\n \
-      Welcome to Remix' help.
-      Remix is Revolt's first open-source music bot. It supports a variety of streaming services and has many features, \
-      with one of the newest being the [Web Dashboard](https://remix.fairuse.org/).\n\n \
-      We hope you enjoy using Remix!\n\n \
-      To get started, just click on the reactions below to find more about the commands.
-      In the case that reactions don't work for you, there's also the possiblity to look through them by using \`${pref}help <page number>\` :)`],
+      content: [`# Home\n\nWelcome to the Remix help page.\n\nRemix is Stoat's first open-source music bot. It supports a variety of streaming services and has many features, with one of the newest being the [Web Dashboard](https://remix.fairuse.org/).\n\nWe hope you enjoy using Remix!\n\nTo get started, just click on the reactions below to find out more about the commands. In the case that reactions don't work for you, there's also the possibility to look through them by using \`${pref}help <page number>\` :)`],
       form: "$content\n\n###### Page $currPage/$maxPage",
       title: "Home Page"
     }, {
@@ -715,17 +820,13 @@ class Remix {
       form: `# Music\n\n$content\n\nTo learn more about a command, run \`${pref}help <command name>\`!\n\nTip: You can use the arrows beneath this message to turn pages, or use \`${pref}help <page number>\` to access a certain page.\n\n###### Page $currPage/$maxPage`,
       title: "Music Commands"
     }, { // TODO: add more info here
-      reaction: "ℹ️",
+      reaction: "📝",
       content: commands.util,
       form: `# Utilities\n\n$content\n\nTo learn more about a command, run \`${pref}help <command name>\`!\n\nTip: You can use the arrows beneath this message to turn pages, or use \`${pref}help <page number>\` to access a certain page.\n\n###### Page $currPage/$maxPage`,
       title: "Utility Commands"
     }, {
       reaction: "💻",
-      content: [`If you need help with anything or encounter any issues, hop over to our support server [Remix HQ](/invite/Remix)!\n
-      Alternatively, you can write a dm to any of the following people:
-      - <@01FZ5P08W36B05M18FP3HF4PT1> (Community Manager & Developer)
-      - <@01FVB1ZGCPS8TJ4PD4P7NAFDZA> (Revolt & Discord Bot Developer)
-      - <@01G9MCW5KZFKT2CRAD3G3B9JN5> (Lead Developer)`],
+      content: ["If you need help with anything or encounter any issues, hop over to our support server [Remix HQ](https://stt.gg/Remix)!\nAlternatively, you can write a dm to any of the following people:\n\n- <@01FZ5P08W36B05M18FP3HF4PT1> (Community Manager)\n- <@01G9MCW5KZFKT2CRAD3G3B9JN5> (Lead Developer)\n- <@01FVB1ZGCPS8TJ4PD4P7NAFDZA> (Junior Developer)"],
       form: "# Support\n\n$content\n\n###### Page $currPage/$maxPage",
       title: "Support Info"
     }]; // TODO: add status, or news page
@@ -740,7 +841,7 @@ class Remix {
     }
   }
   masquerade(msg) {
-    let a = this.settingsMgr.getServer(msg.channel.server_id).get("pfp");
+    let a = this.getSettings(msg).get("pfp");
     let avatar = null;
     if (a == "dark") {
       avatar = "https://autumn.revolt.chat/avatars/xkTqA-n4CDX6_DIwaQJSIy2B1mYpBQRH0iM2dyIscR";
@@ -779,15 +880,15 @@ class Remix {
   prettifyMS(milliseconds) {
     const roundTowardsZero = milliseconds > 0 ? Math.floor : Math.ceil;
 
-  	const parsed = {
-  		days: roundTowardsZero(milliseconds / 86400000),
-  		hours: roundTowardsZero(milliseconds / 3600000) % 24,
-  		minutes: roundTowardsZero(milliseconds / 60000) % 60,
-  		seconds: roundTowardsZero(milliseconds / 1000) % 60,
-  		milliseconds: roundTowardsZero(milliseconds) % 1000,
-  		microseconds: roundTowardsZero(milliseconds * 1000) % 1000,
-  		nanoseconds: roundTowardsZero(milliseconds * 1e6) % 1000
-  	};
+    const parsed = {
+      days: roundTowardsZero(milliseconds / 86400000),
+      hours: roundTowardsZero(milliseconds / 3600000) % 24,
+      minutes: roundTowardsZero(milliseconds / 60000) % 60,
+      seconds: roundTowardsZero(milliseconds / 1000) % 60,
+      milliseconds: roundTowardsZero(milliseconds) % 1000,
+      microseconds: roundTowardsZero(milliseconds * 1000) % 1000,
+      nanoseconds: roundTowardsZero(milliseconds * 1e6) % 1000
+    };
 
     const units = {
       days: "d",

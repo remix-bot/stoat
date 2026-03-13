@@ -59,7 +59,7 @@ class Dashboard {
     io.use(ios(ses));
     io.on("connection", (socket) => this.socketHandler(socket));
     app.use(express.json());
-    app.use(express.urlencoded());
+    app.use(express.urlencoded({ extended: false }));
     app.use(express.static(path.join(__dirname, "/static")));
     app.use(cookieParser());
     app.use(ses);
@@ -110,12 +110,13 @@ class Dashboard {
       const command = this.remix.handler.commands.find(c => c.uid == req.body.id);
       const msg = {
         channel: {
-          serverId: "01FZ62C8WFS3HBEN5QTN8RZRQG"
+          serverId: "eval"
         }
       }
 
-      console.log(args, command);
+      console.log(command);
       const cmd = this.remix.handler.processCommand(command, args, msg, false, true);
+      console.log(cmd);
       res.send({ success: typeof cmd === "object", message: (typeof cmd === "string") ? cmd : "ok" });
     });
 
@@ -204,20 +205,17 @@ class Dashboard {
     secured.get("/dashboard", (req, res) => {
       res.render("dashboard/index.ejs", req.data);
     });
-    secured.get("/playerTest", (_req, res) => {
-      res.sendFile(path.join(__dirname, "./static/js/PlayerTest.html"));
-    });
     secured.get("/search", async (req, res) => {
       const query = (Object.keys(req.query).length == 0) ? null : req.query.q;
       var data = (await this.getSearchResults(query));
 
-      res.render("search/index.ejs", { ...req.data, data: data });
+      res.render("search/index.ejs", { ...req.data, data: data, query: req.query.q, radios: this.remix.config.radio });
     });
     secured.get("/search-content", async (req, res) => {
       const query = (Object.keys(req.query).length == 0) ? null : req.query.q;
       var data = (await this.getSearchResults(query));
 
-      res.render("search/content.ejs", { ...req.data, data: data });
+      res.render("search/content.ejs", { ...req.data, data: data, query: req.query.q, radios: this.remix.config.radio });
     });
     secured.get("/api/channel/icon", async (req, res) => {
       const videoId = req.query.v;
@@ -234,9 +232,9 @@ class Dashboard {
       });
       externalReq.end();
     });
-    secured.get("/api/servers/", (req, res) => {
-      var servers = this.remix.getSharedServers(req.data.user);
-      res.status(200).send(servers);
+    secured.get("/api/servers/", async (req, res) => {
+      var servers = await this.remix.getSharedServers(req.data.user);
+      res.status(200).send(servers ? servers : []);
     });
     secured.get("/api/server/:s/voice", async (req, res) => {
       const server = req.params.s;
@@ -307,12 +305,12 @@ class Dashboard {
           if (!message) this.sendMessage(d.player.messageChannel, req, "[Web] " + (message || "Skipped Successfully"));
           break;
         case "volume":
-          message = d.player.setVolume(Math.round(req.body.data + Number.EPSILON) / 100);
+          message = d.player.setVolume(req.body.data / 100);
           res.status(200).send({ message: message, success: true });
           this.sendMessage(d.player.messageChannel, req, "[Web] " + message);
           break;
         default:
-          res.status(400).send({ message: "Invalid action", success: false });
+          res.status(400).send({ message: "Invalid aciton", success: false });
           break;
       }
     });
@@ -324,6 +322,18 @@ class Dashboard {
       var message;
       switch (req.body.action) {
         case "add":
+          if (req.body.query.startsWith("remix://radio/")) {
+            const name = req.body.query.slice("remix://radio/".length);
+            const radio = this.remix.config.radio.find(e => e.name === name);
+            if (!radio) {
+              return res.status(422).send({ message: "Invalid radio station." });
+            }
+            this.sendMessage(d.player.messageChannel, req, "[Web] Adding radio station to queue...").then(m => {
+              d.player.playRadio(radio);
+              m.edit(this.messageBody(d.player.messageChannel, req, "[Web] Added `" + radio.detailedName + "` to the queue."));
+            })
+            break;
+          }
           message = d.player.play(req.body.query);
           res.status(200).send({ message: "Adding to queue...", success: null })
           if (message) {
@@ -388,10 +398,10 @@ class Dashboard {
       return {
         videoId: song.videoId,
         title: song.title,
-        url: song.url,
+        url: (song.type !== "radio") ? song.url : song.author.url,
         description: song.description,
         thumbnail: song.thumbnail,
-        duration: player.getDuration(song.duration),
+        duration: (song.duration) ? player.getDuration(song.duration) : { timestamp: "infinite" },
         author: song.author,
         artists: song.artists,
         artist: song.artist
@@ -425,8 +435,49 @@ class Dashboard {
           elapsedTime: player.player.seconds * 1000
         });
       }
+      const censorQueue = (data) => {
+        return data.map(e => {
+          if (e.type !== "radio") return e;
+
+          return censorSong(e);
+        });
+      }
+      const censorSong = (song) => {
+        if (!song) return song;
+        if (song.type !== "radio") return song;
+        song.url = song.author.url;
+        song.duration = {
+          timestamp: "infinite",
+          duration: Infinity
+        }
+        return song;
+      }
       const queueHandler = (event) => {
-        socket.emit("queue", event);
+        const e = structuredClone(event); // event is a reference, changes made to it will influence the Player Object
+        switch(event.type) {
+          case "add":
+            if (event.data.data.type !== "radio") break;
+            e.data.data = censorSong(e.data.data);
+            break;
+          case "remove":
+            e.data.old = censorQueue(e.data.old);
+            e.data.new = censorQueue(e.data.new);
+
+            if (event.data.removed.type !== "radio") break;
+            e.data.removed = censorSong(e.data.removed);
+            break;
+          case "shuffle":
+            e.data = censorQueue(e.data);
+            break;
+          case "update":
+            e.data.current = censorSong(e.data.current);
+            e.data.old = censorSong(e.data.old);
+            break;
+          default:
+            break;
+        }
+
+        socket.emit("queue", e);
       }
       player.on("startplay", startPlayHandler);
       player.on("streamStartPlay", streamStartPlayHandler);
@@ -446,14 +497,14 @@ class Dashboard {
       });
     }
     socket.on("info", (uid) => {
-      uid = uid || session.user;
       if (uid !== session.user) return socket.disconnect(true);
+      uid = uid || session.user;
       const d = this.getUserData(uid);
       const con = d.voice || {};
       socket.emit("info", {
         connected: !!d.voice,
         ...currInfo(this.remix.client.channels.get(con.channelId)),
-        currSong: (!!d.voice) ? {...getSongData(d.player.data.current, d.player), elapsedTime: d.player.player.seconds * 1000} : null,
+        currSong: (!!d.voice) ? {...getSongData(d.player.data.current, d.player), elapsedTime: (d.player.player?.seconds  || 0) * 1000} : null,
         currData: (!!d.voice) ? getPlayerData(d.player) : null
       });
       if (!!d.voice) subscribePlayer(d.player, socket);

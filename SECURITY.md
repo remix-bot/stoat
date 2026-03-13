@@ -12,7 +12,12 @@ Remix bot is currently in beta, so proper versioning isn't quite ready, but the 
 
 You can report vulnerabilities in the following ways:
 
--   Preferably, you can message me on Revolt - I'm `Alan`.
+-   Preferably, you can message me on Stoat - I'm `Alan`.
 -   You can also send an email to `remixmusicbot@gmail.com` - make sure the subject is something like `Remix Bot Vulnerability Report`.
 
 I should usually be able to get back to you within 3 days. I'll let you know if I've accepted or declined the report.
+
+---
+
+&copy; 2026 Remix. All Rights Reserved.
+

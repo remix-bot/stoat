@@ -4,12 +4,43 @@
     "email": "An email - only use this if you want to run a self-botted instance; For bots use the above token",
     "password": "The password to the account"
   },
+  "stoat.js": {
+    "heartbeatInterval": 30000
+  },
   "prefix": "your desired prefix (such as %)",
   "presenceInterval": null,
   "presenceContents": [],
   "spotify": {
     "clientId": "your spotify client id",
     "clientSecret": "your spotify client secret"
+  },
+  "comment-radio": {
+    "message": "If you have radio stations you'd like to connect, add them to the array below. Radio stations must be rendered like following:",
+    "station": {
+      "name": "zamrock",
+      "detailedName": "ᘔᗩᗰᘔᗩᗰᖴOᖴᒪIᖴE",
+      "thumbnail": "https://zamrock.net/wp-content/uploads/2024/06/Zamrock_rd_logo_0004-1.gif",
+      "url": "url to stream from; this will be kept private",
+      "description": "Genre: Zamrock, provided by [Zamrock.net](https://zamrock.net/)",
+      "author": {
+        "name": "Zamrock",
+        "url": "https://zamrock.net"
+      },
+      "keyWords": ["radio", "zamrock", "psychedelic", "blues", "rock"]
+    }
+  },
+  "radio": [
+
+  ],
+  "cache": {
+    "guilds": {
+      "enabled": true,
+      "max": 5000
+    },
+    "members": {
+      "enabled": true,
+      "max": 10000
+    }
   },
   "helpCatalog": true,
   "helpPagination": true,
@@ -23,6 +54,7 @@
   },
   "rbl": "Your token for revoltbots.org; optional",
   "webPort": 80,
+  "dashboardUrl": "The url the dashboard is accessible with.",
   "ssl": {
     "private": "path-to-private-key.pem",
     "cert": "path-to-certificate.pem",

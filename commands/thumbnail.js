@@ -9,8 +9,8 @@ module.exports = {
     const p = await this.getPlayer(msg);
     if (!p) return;
     let data = await p.getThumbnail();
-    let m = this.em(data.msg, msg);
-    if (data.image) m.embeds[0].media = data.image;
-    msg.channel.sendMessage(m);
+    msg.channel.sendEmbed(data.msg, false, {
+      media: data.image
+    });
   }
 }

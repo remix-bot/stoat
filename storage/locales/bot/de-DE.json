@@ -34,7 +34,7 @@
     "np" : "Rufe den Namen und die URL des Songs ab, der gerade abgespielt wird.",
     "pause" : "Pausiere die Wiedergabe in deinem Sprachkanal",
     "ping" : "Mein Präfix in diesem Server ist: {{prefix}}\n\nFühre {{helpCmd}} aus, um loszulegen!",
-    "play" : "Spiele ein YouTube-Video mithilfe einer URL/einem Suchbegriff, oder eine Playlist von einer URL. Einige andere Dienste sind auch unterstützt.",
+    "play" : "Spiele ein YouTube-Video mithilfe einer URL/einem Suchbegriff, oder eine Playlist von einer URL. Einige andere Dienste sind auch unterstützt. \nSuchen werden standardmäßig über `Youtube Music` ausgeführt. Um `Youtube` zu verwenden, muss das mit der Option `-u yt` explizit angegeben werden.",
     "player" : "Erstellen eine Emoji-Steuerung für deinen Sprachkanal",
     "playnext" : "Siehe %play. Die gefundenen Songs werden am Anfang der Warteschlange eingefügt.",
     "remove" : "Entferne einen bestimmten Song von der Warteschlange.",

@@ -14,10 +14,10 @@ module.exports = {
     ),
   run: async function(msg, data) {
     const cid = data.get("channelId").value;
-    if (msg.channel.server.id !== this.client.channels.get(cid)?.server.id) return msg.reply(this.em("This command has to be run in the same server as the voice channel.", msg), false)
-    const p = this.playerMap.get(cid);
-    if (!p) return msg.reply(this.em("Player not found", msg));
-    if (!p.connection) return msg.reply(this.em("Player not initialized.", msg), false);
-    this.leaveChannel.call(this, msg, cid, p);
+    if (msg.channel.server.id !== this.client.channels.get(cid)?.server.id) return msg.replyEmbed("This command has to be run in the same server as the voice channel.");
+    const p = this.players.playerMap.get(cid);
+    if (!p) return msg.replyEmbed("Player not found");
+    if (!p.connection) return msg.replyEmbed("Player not initialized.");
+    this.players.leave(msg, cid);
   }
 }

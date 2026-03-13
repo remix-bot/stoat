@@ -15,7 +15,7 @@ module.exports = function(file) {
       res({
         album: data.format?.tags?.album,
         artist: data.format?.tags?.artist,
-        title: data.format?.tags?.title,
+        title: data.format?.tags?.title || data.format?.tags?.StreamTitle,
         duration: data.format.duration * 1000 // convert to ms
       });
     });

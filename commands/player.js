@@ -1,47 +1,51 @@
 const { CommandBuilder } = require("../Commands.js");
+const { Message } = require("../src/MessageHandler.mjs");
 
 module.exports = {
   command: new CommandBuilder()
     .setName("player")
     .setDescription("Create an emoji player control for your voice channel", "commands.player"),
+  /**
+   * @param {Message} msg
+   */
   run: async function(msg) {
     const p = await this.getPlayer(msg);
     if (!p) return;
 
     const Timeout = this.config.playerAFKTimeout || 10 * 6000;
-
     const controls = ["▶️", "⏸️", "⏭️", "🔁", "🔀"];
     const form = "Currently Playing: $current\n\n$lastMsg";
-    var em = this.embedify(form.replace(/\$current/gi, p.getCurrent()).replace(/\$lastMsg/gi, "Control updates will appear here"));
-    msg.reply({
+    var lastContent = form.replace(/\$current/gi, p.getCurrent()).replace(/\$lastMsg/gi, "Control updates will appear here");
+    msg.replyEmbed({
       content: " ",
-      embeds: [em],
+      embedText: lastContent,
       interactions: {
         restrict_reactions: true,
         reactions: controls
       }
-    }, false).then((m) => {
+    }).then((m) => {
+
       var suspensionTimeout = setTimeout(() => close(), Timeout);
 
       var lastUpdate = "Control updates will appear here";
-      const update = (s=lastUpdate) => {
-        em = this.embedify(form.replace(/\$current/gi, p.getCurrent()).replace(/\$lastMsg/gi, s))
-        m.edit({ embeds: [ em ]});
+      const update = (s = lastUpdate) => {
+        lastContent = form.replace(/\$current/gi, p.getCurrent()).replace(/\$lastMsg/gi, s);
+        m.editEmbed(lastContent);
         lastUpdate = s;
       }
       const close = () => {
-        this.unobserveReactions(oid);
-        m.edit({
+        unobserve();
+        m.editEmbed({
           content: "Player Session Closed",
-          embeds: [
-            this.embedify(em.description + "\n\nSession Closed. The player controls **won't respond** from here.", "red")
-          ]
+          embedText: lastContent + "\n\nSession Closed. The player controls **won't respond** from here.",
+        }, {
+          colour: "red"
         });
       }
       p.on("message", () => {
         update();
       });
-      const oid = this.observeReactions(m, controls, (e, ms) => {
+      const unobserve = m.onReaction(controls, (e) => {
         var reply = "";
         switch (e.emoji_id) {
           case controls[0]:

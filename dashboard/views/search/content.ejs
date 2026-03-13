@@ -1,23 +1,31 @@
 <div class="results" style="margin-top: 1rem; padding: 1rem; text-align: left;">
+  <%
+    radios.forEach(r => {
+      const keywords = r.keyWords;
+
+      if (keywords.findIndex(e => query.toLowerCase().includes(e)) !== -1) {
+  %>
+        <%-
+        include("search/content-tile", { d: {
+          url: "remix://radio/" + r.name,
+          redirectUrl: r.author.url,
+          thumbnail: r.thumbnail,
+          title: r.detailedName,
+          author: {
+            iconUrl: r.thumbnail,
+            url: r.author.url,
+            name: r.author.name,
+          },
+          description: r.description
+        }});
+        %>
+  <%
+      }
+    });
+  %>
+
   <% for (let i = 0; i < data.length; i++) { %>
-    <div style="aspect-ratio: 3/1; height: 10rem; margin: 0.2rem; display: inline-block; border-radius: 5px; overflow: hidden" video="<%- data[i].url %>">
-      <div style="width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; row-gap: 0.2rem; color: white">
-        <div style="width: 100%; height: 100%; grid-column: 1; grid-row: 1; background-color: black; border-radius: 5px;" class="add-btn">
-          <a href="javascript:void(0);" onclick="play(this)" style="position: relative; top: 50%; transform: translateY(-50%); text-align: center; display: block;">
-            <i class="fa-regular fa-plus"></i>
-          </a>
-        </div>
-        <img src="<%- data[i].thumbnail || '/assets/icon.png' %>" style="object-fit: cover; width: 100%; aspect-ratio: 1/1; border-radius: 5px; grid-column: 1; grid-row: 1" />
-        <div style="grid-column: 2; grid-row: 1; width: 100%; max-height: 100%; display: flex; flex-direction: column; gap: 0.2rem;">
-          <h1 style="font-size: 110%"><a style="text-decoration: none;" href="<%- data[i].url %>" target="_blank"><%= data[i].title %></a></h1>
-          <a style="text-decoration: none;" href="<%- data[i].author.url %>" target="_blank">
-            <img src="/api/imageProxy?url=<%- encodeURIComponent(data[i].author.iconUrl) %>" style="background: transparent url('/assets/loading.gif') center center no-repeat; background-size: contain; display: inline; aspect-ratio: 1/1; width: 2rem; border-radius: 100%" />
-            <span style="font-size: 85%"><%= data[i].author.name %></span>
-          </a>
-          <p style="font-size: 80%; opacity: 0.8; margin-top: 0.4rem;"><%= data[i].description %></p>
-        </div>
-      </div>
-    </div>
+    <%- include("search/content-tile", { d: data[i] }); %>
   <% } %>
 </div>
 <style>

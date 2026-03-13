@@ -10,19 +10,19 @@ module.exports = {
         .setRequired(true)
     ).addChoiceOption(o =>
       o.setName("provider")
-        .setDescription("The search result provider (YouTube or YouTube Music). Default: Youtube Music", "options.search.provider") // same as search provider flag
+        .setDescription("The search result provider (YouTube, YouTube Music or SoundCloud). Default: SoundCloud", "options.search.provider") // same as search provider flag
         .addFlagAliases("p", "u", "use")
-        .addChoices("ytm", "yt")
+        .addChoices("ytm", "yt", "scld")
         .setDefault("ytm")
     , true).addAlias("pn"),
   run: async function(message, data) {
     const p = await this.getPlayer(message);
     if (!p) return;
     const query = data.get("query").value; // only 1 text option registered
-    message.reply(this.em("Searching...", message), false).then((msg) => {
+    message.replyEmbed("Searching...").then((msg) => {
       const messages = p.playFirst(query, data.get("provider").value);
       messages.on("message", (d) => {
-        msg.edit(this.em(d, message));
+        msg.editEmbed(d, message);
       });
     });
   }

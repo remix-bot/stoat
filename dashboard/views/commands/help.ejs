@@ -22,7 +22,8 @@
   // TODO: include command parser and sandbox
   %>
 
-  <div id="sandbox" onkeyup="update(this)" contenteditable="true" style="border: 1px solid white; min-height: 3rem">
+  <div id="sandbox" onkeyup="update(this)" contenteditable="true" style="border: 1px solid white; min-height: 3rem; padding: 0.5rem; border-radius: 5px;" spellcheck="false">
+
   </div>
   <p style="color: red" id="error">
 
@@ -34,29 +35,41 @@
   var previous = "";
   var coolDownTimeout = null;
   const update = (area) => {
+    updateCurrentCommand(area);
     if (coolDownTimeout) clearTimeout(coolDownTimeout);
     coolDownTimeout = setTimeout(() => {
-      console.log(area.innerHTML);
+      console.log(area.innerHTML, area.innerText);
       if (area.innerText === previous) return;
       var content = area.innerText;
       previous = content;
       if (content.startsWith(PREFIX)) content = content.slice(1, content.length);
 
+      console.log(content);
+      content = content.replace(/\s/g,' ') // remove all &nbsp
       const args = content.split(" ");
+      console.log(args);
       if (!COMMANDS.map(c => c.aliases).flat(1).includes(args[0].toLowerCase())) return;
 
       const cmd = COMMANDS.find(c => c.aliases.includes(args[0]));
 
       const reset = () => {
         area.innerHTML = area.innerText;
+        document.getElementById("error").innerHtml = "";
       }
+
+      console.log("post")
       post("/api/cmd/eval", {
         args: args,
         id: cmd.id
       }).then(r => r.json()).then((res) => {
         console.log(res);
 
-        if (res.success) return reset(); // no issues
+        if (res.success) {
+          area.style.borderColor = "green";
+          // TODO: display command data as registered on the server; (to show default values and the effect on them)
+          return reset(); // no issues
+        }
+        area.style.borderColor = "red";
         const start = res.message.lastIndexOf("`", res.message.length - 4);
         const end = res.message.lastIndexOf("`");
         const syntax = res.message.slice(start + 1, end);
@@ -65,7 +78,7 @@
         const wordPos = syntax.split(" ").length - 1;
         console.log(wordPos);
 
-        var words = area.innerText.split(" ");
+        var words = area.innerText.replace(/\s/g, " ").split(" ");
         words = words.map((e, i) => {
           if (i === wordPos) return "<span class='error'>" + e + "</span>";
           return e;
@@ -73,10 +86,29 @@
         area.innerHTML = words.join(" ");
         console.log(area.innerHTML)
 
-        document.getElementById("error").innerHTML = res.message.replaceAll("  ", "<br />");
+        document.getElementById("error").innerText = res.message.replaceAll("  ", "\n");
       });
       console.log(args, cmd.name);
     }, 2000);
+  }
+
+  const commandContainer = document.getElementById("commands");
+  var previousCmdId = null;
+  const updateCurrentCommand = (area) => {
+    var content = area.innerText;
+    if (content.startsWith(PREFIX)) content = content.slice(1, content.length);
+
+    const args = content.replace(/\s/g, " ").split(" ");
+    if (!COMMANDS.map(c => c.aliases).flat(1).includes(args[0].toLowerCase())) return;
+    const cmd = COMMANDS.find(c => c.aliases.includes(args[0]));
+    console.log(cmd);
+
+    const id = cmd.id;
+    if (id !== previousCmdId) {
+      if (previousCmdId) document.getElementById(previousCmdId).style.display = "none";
+      document.getElementById(id).style.display = "inline";
+      previousCmdId = id;
+    }
   }
 
   window.post = (url, payload) => {
@@ -91,34 +123,10 @@
   }
   </script>
 
-  <div>
+  <div id="commands">
     <% for (let i = 0; i < commands.length; i++) {%>
       <% const command = commands[i]//commands[17]; %>
-    <div style="width: fit-content; display: inline">
-      <h2><%= command.name %></h2>
-      <div>
-        <code style="display: flex; flex-direction: row; gap: 0.6rem; align-items: center; width: fit-content">
-          <%= prefix + command.name %>
-          <% command.options.forEach(option => { %>
-            <% if (option.type == "choice") { %>
-              <!--<div style="display: flex; flex-direction: column; gap: 0.2rem">
-                <div>
-                  <% option.choices.forEach(c => { %>
-                    <span><%= c %></span>
-                  <% }); %>
-                </div>
-                <span style="font-size: 70%"><%= option.name %></span>
-              </div>-->
-              <div style="display: block">
-                <span><%= option.choices.join("/") %></span>
-                <sup style="font-size: 60%"><%= option.name %></sup>
-              </div>
-            <% } %>
-            <span style="color: <%= colorMapping[option.type] %>"><%= option.name %></span>
-          <% }) %>
-        </code>
-      </div>
-    </div>
+      <%- include("commands/command", { command, colorMapping }) %>
     <% } %>
 
   </div>

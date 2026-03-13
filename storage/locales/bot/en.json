@@ -34,7 +34,7 @@
     "np" : "Request the name and url of the currently playing song.",
     "pause" : "Pause the playback in your voice channel",
     "ping" : "My prefix in this server is: {{prefix}}\n\nUse {{helpCmd}} to get started!",
-    "play" : "Play a youtube video from url/query or a playlist by url. Other services are supported as well.",
+    "play" : "Play a youtube video from url/query or a playlist by url. Other services are supported as well.\nSearches will be done on `Youtube Music` by default.\nIf you want to search on `YouTube` you will have to specify that with `-u yt` explicitly.",
     "player" : "Create an emoji player control for your voice channel",
     "playnext" : "Same as %play. The result will be added to the top of the queue.",
     "remove" : "Remove a specific song from the queue.",

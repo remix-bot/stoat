@@ -3,7 +3,7 @@ module.exports = {
 
   }*/
   prefix: function(value, data) {
-    this.handler.setCustomPrefix(data.msg.channel.serverId, value);
+    //this.handler.setCustomPrefix(data.msg.channel.serverId, value);
   },
   pfp: function(value, data) {
     if (!data.msg.channel.server.havePermission("Masquerade") && value != "default") {

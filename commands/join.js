@@ -1,18 +1,18 @@
 const { CommandBuilder } = require("../Commands.js");
 const RevoltPlayer = require("../Player.js");
-
+/* */
 function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
   if (!this.client.channels.has(cid)) {
     ecb();
-    return message.reply(this.em("Couldn't find the channel `" + cid + "`\nUse the help command to learn more about this. (`%help join`)", message), false)
+    return message.replyEmbed("Couldn't find the channel `" + cid + "`\nUse the help command to learn more about this. (`%help join`)")
   }
 
   if (this.playerMap.has(cid)) {
     cb(this.playerMap.get(cid));
-    return message.reply(this.em("Already joined <#" + cid + ">.", message), false);
+    return message.replyEmbed("Already joined <#" + cid + ">.");
   }
   this.channels.push(cid);
-  const settings = this.settingsMgr.getServer(message.channel.serverId);
+  const settings = this.getSettings(message);
   const pOff = this.freed.shift() || ++this.currPort; // reuse old ports
   const p = new RevoltPlayer(this.config.token, {
     voice: this.revoice,
@@ -24,10 +24,11 @@ function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
     spotifyClient: this.spotify,
     geniusClient: this.geniusClient,
     messageChannel: message.channel,
-    ytdlp: this.ytdlp
+    ytdlp: this.ytdlp,
+    innertube: this.innertube
   });
   p.on("autoleave", async () => {
-    message.channel.sendMessage(this.em("Left channel <#" + cid + "> because of inactivity.", message));
+    message.channel.sendEmbed("Left channel <#" + cid + "> because of inactivity.");
     const port = p.port - 3050;
     this.playerMap.delete(cid);
     p.destroy();
@@ -40,10 +41,10 @@ function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
       p.emit("userupdate", user, "leave");
       cbs.forEach(c => c.cb.call(this, "left", p));
     });
-  })
+  });
   p.on("message", (m) => {
-    if ((this.settingsMgr.getServer(message.channel.serverId).get("songAnnouncements")) == "false") return;
-    message.channel.sendMessage(this.em(m, message))
+    if ((this.getSettings(message).get("songAnnouncements")) == "false") return;
+    message.channel.sendEmbed(m);
   });
   p.on("roomfetched", () => {
     p.connection.users.forEach(user => {
@@ -54,9 +55,9 @@ function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
     });
   });
   this.playerMap.set(cid, p);
-  message.reply(this.em("Joining Channel...",   message), false).then((message) => {
+  message.replyEmbed("Joining Channel...").then((message) => {
     p.join(cid).then(() => {
-      message.edit(this.em(`:white_check_mark: Successfully joined <#${cid}>`, message));
+      message.editEmbed(`✅ Successfully joined <#${cid}>`);
       cb(p);
 
       p.connection.on("userjoin", (user) => {
@@ -84,12 +85,23 @@ module.exports = {
       option.setName("Channel ID")
         .setType("voiceChannel")
         .setId("cid")
-        .setDescription("Specify the channel, the bot should join. This is necessary due to (current) Revolt limitations.", "options.join.channel")
+        .setDescription("Specify the channel the bot should join. It will try to find it automatically, if not provided. If it doesn't find you though, it will fail and you will have to provide the channel. This is necessary due to (current) Stoat limitations.", "options.join.channel-deprecated")
+        .setDynamicDefault((_client, message) => {
+          if (!message) return null;
+          const user = message.authorId;
+          var id = null;
+          message.channel.server.channels.forEach((c) => {
+            if (!c.isVoice) return;
+            if (!c.voiceParticipants.has(user)) return;
+            id = c.id;
+          });
+          return id;
+        })
         .setRequired(true)
     ),
   run: function(message, data) {
-    const cid = data.getById("cid").value;
-    joinChannel.call(this, message, cid);
+    const cid = data.getById("cid").value || this.checkVoiceChannels(message);
+    this.players.initPlayer(message, cid);
   },
   export: {
     name: "joinChannel",

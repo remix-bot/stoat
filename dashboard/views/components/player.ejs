@@ -834,7 +834,7 @@
     artist.innerText = (!vid.artists) ? vid.author.name : vid.artists.map(a => `${a.name}`).join(" & ");
     song.innerText = vid.title;
 
-    duration.innerText = vid.duration;
+    duration.innerText = (typeof vid.duration !== "object") ? vid.duration : vid.duration.timestamp;
   }
   function resetPlayer() {
     bgrdImg.src = "/assets/icon.png";

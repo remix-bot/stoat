@@ -1,0 +1,40 @@
+<div style="width: fit-content; display: inline; <%= (command.name == "play") ? "" : "display: none" %>" id="<%= command.uid %>">
+  <h2>
+    <%= command.name %>
+
+    <% const aliases = command.aliases.filter(a => a != command.name); %>
+    <% if (aliases.length > 0) { %> <sub><%= aliases.join(", ") %></sub> <% } %>
+  </h2>
+  <p>
+    <%= command.description %>
+  </p>
+  <div>
+    <code style="display: flex; flex-direction: row; gap: 0.6rem; align-items: center; width: fit-content">
+      <%= prefix + command.name %>
+      <% command.options.forEach(option => { %>
+        <% if (option.type == "choice") { %>
+          <!--<div style="display: flex; flex-direction: column; gap: 0.2rem">
+            <div>
+              <% option.choices.forEach(c => { %>
+                <span><%= c %></span>
+              <% }); %>
+            </div>
+            <span style="font-size: 70%"><%= option.name %></span>
+          </div>-->
+          <div style="display: block">
+            <span><%= option.choices.join("/") %></span>
+            <sup style="font-size: 60%"><%= option.name %></sup>
+          </div>
+        <% } %>
+        <span style="color: <%= colorMapping[option.type] %>"><%= option.name %></span>
+      <% }) %>
+    </code>
+  </div>
+  <% if (command.options.length > 0) { %>
+  <div>
+    <h3>Arguments</h3>
+    <ul>
+    </ul>
+  </div>
+  <% } %>
+</div>
