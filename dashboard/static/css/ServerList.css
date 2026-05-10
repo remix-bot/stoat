@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900;1000&display=swap');
+
+* {
+  font-family: 'Cairo', sans-serif;
+  color: white;
+}
+
+.con {
+  background-color: rgb(31, 41, 55);
+  border-radius: 5px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
+  padding: 1rem;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+ul {
+  margin: 0;
+}
+.con *, ul {
+  text-align: left;
+  margin-left: 0.5rem;
+  list-style-type: none;
+  padding: 0;
+}
+.con > h1 {
+  font-size: 130%;
+  margin: 0;
+}
+
+.channelItem {
+  cursor: pointer;
+}
+
+.caret {
+  cursor: pointer;
+  user-select: none;
+  float: left;
+}
+.caret::before {
+  content: "\25B6";
+  color: white;
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.2s;
+}
+.caret-down::before {
+  transform: rotate(90deg);
+}
+.nested {
+  display: none;
+}
+.active {
+  display: block;
+}

@@ -1,0 +1,106 @@
+/* TODO: remove */
+
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900;1000&display=swap');
+
+* {
+  font-family: 'Cairo', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+.queue-container.minimised {
+  display: none;
+}
+.queue:empty:after {
+  content: "Empty";
+  /*color: rgb(19, 25, 39);*/
+  font-size: 70%;
+}
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 4.5rem;
+  height: 0.7em;
+  outline: none;
+  background: rgb(19, 25, 39);
+  border-radius: 7px;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.9rem;
+  width: 0.9rem;
+  background: #e9196c;
+  border-radius: 100%;
+  cursor: pointer;
+  position: relative;
+  border: 0.5px solid rgb(19, 25, 39);
+}
+.slider::-moz-range-thumb {
+  height: 0.9rem;
+  width: 0.9rem;
+  background: #e9196c;
+  border-radius: 100%;
+  cursor: pointer;
+  position: relative;
+  border: 0.5px solid rgb(19, 25, 39);
+}
+
+.player-maximise {
+  display: none;
+}
+.minimised.player-maximise {
+  display: block;
+}
+.minimised.remix-player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 7rem;
+}
+.thumbnail {
+  height: 12rem;
+}
+.thumbnail.minimised {
+  height: 5.5rem;
+}
+.player-info {
+  flex-direction: column;
+}
+.player-info.minimised {
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+.minimised > h1 {
+  display: none;
+}
+.minimised > p {
+  margin-bottom: 0 !important;
+  margin-right: 0.5rem;
+  flex-grow: 2;
+  text-align: left;
+}
+/*.queue > * {
+  transition: 1s all;
+}*/
+
+button {
+  font-size: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  line-height: inherit;
+  font-weight: inherit;
+}
+
+p, h1 {
+  margin: 0;
+}
+
+.hidden {
+  display: none;
+}

@@ -1,15 +1,15 @@
 const { CommandBuilder } = require("../Commands.js");
 const RevoltPlayer = require("../Player.js");
-
+/* */
 function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
   if (!this.client.channels.has(cid)) {
     ecb();
-    return message.reply(this.em("Couldn't find the channel `" + cid + "`\nUse the help command to learn more about this. (`%help join`)", message), false)
+    return message.replyEmbed("Couldn't find the channel `" + cid + "`\nUse the help command to learn more about this. (`%help join`)")
   }
 
   if (this.playerMap.has(cid)) {
     cb(this.playerMap.get(cid));
-    return message.reply(this.em("Already joined <#" + cid + ">.", message), false);
+    return message.replyEmbed("Already joined <#" + cid + ">.");
   }
   this.channels.push(cid);
   const settings = this.getSettings(message);
@@ -28,7 +28,7 @@ function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
     innertube: this.innertube
   });
   p.on("autoleave", async () => {
-    message.channel.sendMessage(this.em("Left channel <#" + cid + "> because of inactivity.", message));
+    message.channel.sendEmbed("Left channel <#" + cid + "> because of inactivity.");
     const port = p.port - 3050;
     this.playerMap.delete(cid);
     p.destroy();
@@ -44,7 +44,7 @@ function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
   });
   p.on("message", (m) => {
     if ((this.getSettings(message).get("songAnnouncements")) == "false") return;
-    message.channel.sendMessage(this.em(m, message))
+    message.channel.sendEmbed(m);
   });
   p.on("roomfetched", () => {
     p.connection.users.forEach(user => {
@@ -55,9 +55,9 @@ function joinChannel(message, cid, cb=()=>{}, ecb=()=>{}) {
     });
   });
   this.playerMap.set(cid, p);
-  message.reply(this.em("Joining Channel...",   message), false).then((message) => {
+  message.replyEmbed("Joining Channel...").then((message) => {
     p.join(cid).then(() => {
-      message.edit(this.em(`✅ Successfully joined <#${cid}>`, message));
+      message.editEmbed(`✅ Successfully joined <#${cid}>`);
       cb(p);
 
       p.connection.on("userjoin", (user) => {
@@ -101,7 +101,7 @@ module.exports = {
     ),
   run: function(message, data) {
     const cid = data.getById("cid").value || this.checkVoiceChannels(message);
-    joinChannel.call(this, message, cid);
+    this.players.initPlayer(message, cid);
   },
   export: {
     name: "joinChannel",

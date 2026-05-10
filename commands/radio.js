@@ -25,7 +25,7 @@ module.exports = {
       m += " \n\nUse the name in the brackets to select that station in the radio command.\n\n";
       m += "Example: `%radio zamrock`";
 
-      msg.reply(this.em(m, msg), false);
+      msg.replyEmbed(m);
       return;
     }
 
@@ -33,9 +33,9 @@ module.exports = {
     if (!p) return;
 
     const radio = this.config.radio.find(e => e.name === data.get("station").value);
-    msg.channel.sendMessage(this.em("Adding radio station to queue...", msg)).then(m => {
+    msg.channel.sendEmbed("Adding radio station to queue...").then(m => {
       const _messages = p.playRadio(radio);
-      m.edit(this.em("Added `" + radio.detailedName + "` to the queue.", msg));
+      m.editEmbed("Added `" + radio.detailedName + "` to the queue.");
     });
   }
 }

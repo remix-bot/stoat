@@ -1,0 +1,182 @@
+<body style="padding: 0; margin: 0; background-color: rgb(17, 24, 39)">
+  <link rel="stylesheet" href="/css/Player.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link href="/assets/fontawesome/css/fontawesome.css" rel="stylesheet">
+  <link href="/assets/fontawesome/css/all.min.css" rel="stylesheet">
+
+  <div style="
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    row-gap: 1rem;
+    grid-rows: 2;
+    align-items: center;
+    padding: 1.5rem;
+    border-radius: 5px;
+    background-color: rgb(31, 41, 55);
+    /*border: 1px solid #282828;*/
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
+    color: #fff;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 1rem;" class="remix-player">
+
+    <div style="aspect-ratio: 1/1; margin-right: 2rem; grid-row: 1; grid-column: 1;" class="thumbnail">
+      <img id="thumbnail" cbgrdc="nochange" style="border-radius: 5px; object-fit: cover; height: 100%; width: 100%;" src="/assets/icon.png" alt="Thumbnail of the current song." />
+    </div>
+
+    <div style="display: flex; justify-content: center; height: 100%; flex-grow: 2; grid-row: 1; grid-column-start: 2; grid-column-end: 4; text-align: center; gap: 0.2rem" class="player-info">
+      <h1 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem;">Currently Playing</h1>
+      <p style="font-size: 1rem; margin-bottom: 1rem;"><span id="song"></span> - <span id="artist"></span></p>
+      <span>
+        <span id="elapsedTime">00:00</span>/<span id="duration">00:00</span>
+      </span>
+      <div style="display: flex; flex-direction: row; justify-content: center; opacity: 0.5">
+        <button class="btn btn-play btn-pbt hidden" style="margin-right: 0.5rem;" onclick="togglePlay(this)" action="resume" disabled>
+          <i class="fa-solid fa-play" style="color: #e9196c"></i>
+        </button>
+        <button class="btn btn-pause btn-pbt" onclick="togglePlay(this)" action="pause" disabled>
+          <i class="fa-solid fa-pause" style="color: #e9196c; margin-right: 0.5rem;"></i>
+        </button>
+        <button class="btn btn-skip btn-pbt" onclick="pushAction(this)" action="skip" disabled>
+          <i class="fa-solid fa-forward" style="color: #e9196c"></i>
+        </button>
+        <div class="slidecontainer" style="margin-left: 0.5rem; display: flex; flex-direction: row; align-items: center; gap: 0.2rem" title="100%">
+          <input type="range" style="accent-color: #e9196c; background: #e9196c" class="slider" value="100" min="0" max="100" onmouseup="changeVolume(this.value)" oninput="updateSlider(this)" id="volumeSlider" />
+          <i class="fa-solid fa-volume-high" style="float:left;color: #e9196c" id="volumeIcon"></i>
+        </div>
+      </div>
+      <div style="position: relative; display: flex; flex-direction: column" class="search-container">
+        <input type="text" name="search" placeholder="Search or paste a link" onkeyup="keyUpSearch(this)" autocomplete="off" id="search"
+          style="margin: 10px 0 0;
+            padding: 5px;
+            padding-left: 7px;
+            padding-right: 7px;
+            align-self: center;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            width: 100%;
+            max-width: 400px;
+            background-color: rgb(19, 25, 39);
+            border-color: #bbb;
+            transition: all 0.2s ease-in-out;">
+        <div style="position: relative; align-self: center; width: 100%">
+          <ul id="completions" style="
+            background-color: rgb(19, 25, 39);
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
+            border-radius: 5px;/*0 0 5px 5px;*/
+            position: absolute;
+            display: none;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            algin-self: center;
+            width: 100%;
+            max-width: 400px;
+            padding: 5px">
+          </ul>
+        </div>
+      </div>
+      <a style="position: absolute; top:1rem; right: 1rem; text-decoration: none;" class="player-maximise" href="javascript:void(0);" onclick="maximisePlayer()"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></a>
+    </div>
+
+    <!-- queue -->
+    <div style="grid-row: 2; grid-column-start: 1; grid-column-end: 4; text-align: center" class="queue-container">
+      <h1 style="font-size: 1.5rem; font-weight: normal">Queue</h1>
+      <br />
+      <div style="width: 100%; height: 4rem; padding: 0.3rem; display: flex; display: none; flex-direction: row; gap: 0.5rem; align-items: center; border-bottom: 1px solid rgb(19, 25, 39)" id="originItem"> <!-- for the simplicity of the script, this has been moved out of .queue -->
+        <img alt="song cover" src="/assets/icon.png" style="aspect-ratio: 1 / 1; height: 100%; border-radius: 5px; object-fit: cover" cover />
+        <div style="flex-grow: 3; display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem">
+          <span style="font-size: 1.1rem" title>Song name</span>
+          <span style="font-size: 0.8rem" artist>Artist name</span>
+        </div>
+        <p style="align-self: center" duration>3:08</p>
+      </div>
+      <div class="queue" style="width: 100%; display: flex; flex-direction: column;"></div> <!-- inspired by yt music -->
+    </div>
+  </div>
+
+<br />
+
+<h1 style="color: rgb(219, 39, 119); font-size: 200%; text-align: center; font-weight: 600">Web Component Rewrite: </h1>
+
+<br />
+
+<div style="
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  padding: 1.5rem;
+  gap: 1.5rem;
+  color: white">
+
+  <div style="
+  flex-grow: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  justify-content: center">
+    <remix-server-list style="flex-grow: 2" id="server-list"></remix-server-list>
+  </div>
+
+  <remix-player style="flex-grow: 3" id="wcplayer"></remix-player>
+</div>
+
+<remix-channel-selector id="channelSelector"></remix-channel-selector>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script type="module">
+  import "/js/Player.js";
+  import "/js/ServerList.js";
+  import "/js/ChannelSelector.js";
+
+  const l = document.getElementById("server-list");
+  window.addEventListener("load", () => {
+    l.load();
+  });
+
+  const m = document.getElementById("channelSelector");
+  window.m = m;
+
+  import NotificationManager from "/js/Notifications.js";
+
+  //const mgr = new NotificationManager(); // TODO: pass notification manager to player
+  const mgr = window.remix.notifications;
+  mgr.addInfo("infotest", "this is an info notification test", 10000);
+  mgr.addError("errortest", "this is an error notification test", 10000);
+
+  const p = document.getElementById("wcplayer");
+  console.log(p);
+  console.log(p.getAttribute("artist"));
+  console.log(p.disabled);
+  p.disabled = true;
+  console.log(p.disabled);
+  p.disabled = false;
+  window.p = p;
+
+  p.queue.setCurrent({ title: "A song0", videoId: "1", author: { name: "ShadowLp174" }, duration: 60000, thumbnail: "https://autumn.revolt.chat/avatars/Ej0UkdPD6b_QSUdNwgTWidN2k5X4x1UXeCadpQA374?max_side=256" })
+  p.queue.push({ title: "A song1", videoId: "1", author: { name: "ShadowLp174" }, duration: 60000, thumbnail: "https://autumn.revolt.chat/avatars/Ej0UkdPD6b_QSUdNwgTWidN2k5X4x1UXeCadpQA374?max_side=256" });
+  p.queue.push({ title: "A song2", videoId: "2", author: { name: "ShadowLp174" }, duration: 60000, thumbnail: "https://autumn.revolt.chat/avatars/Ej0UkdPD6b_QSUdNwgTWidN2k5X4x1UXeCadpQA374?max_side=256" });
+  p.queue.push({ title: "A song3", videoId: "3", author: { name: "ShadowLp174" }, duration: 60000, thumbnail: "https://autumn.revolt.chat/avatars/Ej0UkdPD6b_QSUdNwgTWidN2k5X4x1UXeCadpQA374?max_side=256" });
+  p.queue.loop = true;
+
+  p.addEventListener("imageColour", (e) => {
+    console.log("Image colour update", e.detail);
+    const colour = e.detail;
+    // colour === null means "reset"
+    if (colour === null) return document.body.style.backgroundColor = "rgb(17, 24, 39)";
+    document.body.style.backgroundColor = `rgba(${colour.r}, ${colour.g}, ${colour.b}, 1)`; // TODO: prevent very light colours
+  });
+
+  p.addEventListener("join", (data) => {
+    // TODO: updateCDisplay(data)
+  });
+  p.addEventListener("leave", () => {
+    // TODO: `implement updateCDisplay({ channel: { name: "-" }, server: { name: "-" } })`
+    console.log("left");
+  });
+</script>
+</body>

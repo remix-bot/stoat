@@ -4,12 +4,12 @@ function leaveChannel(msg, cid, p) {
   return new Promise(async (res) => {
     this.playerMap.delete(cid);
     const port = p.port - 3050;
-    const m = await msg.reply(this.em("Leaving...", msg), false);
+    const m = await msg.replyEmbed("Leaving...");
     const left = p.leave();
     //p.leave().then(async left => {
     p.destroy(); // wait for the ports to be open again
     this.freed.push(port);
-    m.edit(this.em((left) ? `✅ Successfully Left` : `Not connected to any voice channel`, msg));
+    m.editEmbed((left) ? `✅ Successfully Left` : `Not connected to any voice channel`);
     res();
   });
 }
@@ -22,9 +22,9 @@ module.exports = {
   run: async function(msg) {
     const p = await this.getPlayer(msg, false, false);
     if (!p) return;
-    if (!p.connection) return msg.reply(this.em("Player not initialized.", msg), false);
+    if (!p.connection) return msg.replyEmbed("Player not initialized.");
     const cid = p.connection.channelId;
-    leaveChannel.call(this, msg, cid, p);
+    this.players.leave(msg, cid);
   },
   export: {
     name: "leaveChannel",

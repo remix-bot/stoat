@@ -8,6 +8,6 @@ module.exports = {
     const p = await this.getPlayer(message);
     if (!p) return;
     let res = p.resume() || `✅ The song has been resumed!`;
-    message.channel.sendMessage(this.em(res, message));
+    message.channel.sendEmbed(res);
   }
 }

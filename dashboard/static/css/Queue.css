@@ -1,0 +1,14 @@
+.queue-container.minimised {
+  display: none;
+}
+.queue:empty:after {
+  content: "Empty";
+  /*color: rgb(19, 25, 39);*/
+  font-size: 70%;
+}
+p, h1 {
+  margin: 0;
+}
+/*.queue > * {
+  transition: 1s all;
+}*/

@@ -1,0 +1,57 @@
+.notification {
+  position: relative;
+  background-color: rgb(31, 41, 55);
+  /*padding: 0.5rem;
+  padding-left: 1rem;
+  padding-right: 1rem;*/
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0px 4px 12px rgb(0 0 0 / 40%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  font-size: 90%;
+  width: 32rem;
+
+  transition: transform 0.1s;
+  transition-timing-function: linear;
+
+  background-color: #e89d96;
+  color: #7a1200;
+}
+.notification:before {
+  background-color: #d13b2e;
+  content: "";
+  height: 100%;
+  width: 30px;
+  position: absolute;
+  left: -1.5rem;
+  border-radius: 2px 0 0 2px;
+}
+.info {
+  background-color: #7ebef7;
+  color: #0e3377;
+}
+.info:before {
+  background-color: #0f82e6;
+}
+.notif-title {
+  font-size: 120%;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+.notif-content {
+  background-color: rgba(255, 255, 255, 0.3);
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-bottom: 0.5rem;
+  padding-top: 0.5rem;
+  border-radius: 0 0 3px 0;
+}
+.closebtn {
+  cursor: pointer;
+  position: absolute;
+  right: 0.5rem;
+  top: 0.25rem;
+}

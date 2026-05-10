@@ -10,13 +10,13 @@ module.exports = {
     const p = await this.getPlayer(message);
     if (!p) return;
 
-    const n = message.reply(this.em("Fetching lyrics from genius...", message), false);
+    const n = message.replyEmbed("Fetching lyrics from genius...");
 
     var messages = await p.lyrics();
-    if (!messages) return (await n).edit(this.em("Couldn't find the lyrics for this song on genius!", message), false);
-    if (messages.length == 0) return message.reply(this.em("There's nothing playing at the moment.", message), false);
+    if (!messages) return (await n).editEmbed("Couldn't find the lyrics for this song on genius!");
+    if (messages.length == 0) return message.replyEmbed("There's nothing playing at the moment.");
     messages = messages.split("\n");
-    (await n).delete();
-    this.pagination("Lyrics for " + p.getVidName(p.data.current) + ": \n```\n$content\n```\nPage $currPage/$maxPage", messages, message, 15)
+    (await n).message.delete();
+    this.pagination("Lyrics for " + p.getVideoName(p.queue.getCurrent()) + ": \n```\n$content\n```\nPage $currPage/$maxPage", messages, message, 15)
   }
 }

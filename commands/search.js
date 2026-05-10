@@ -1,18 +1,22 @@
 const { CommandBuilder } = require("../Commands.js");
+const { MessageHandler } = require("../src/MessageHandler.mjs");
 
 function awaitMessage(msg, count, player) {
-  const oid = this.observeUser(msg.authorId, msg.channelId, (m) => {
+  /** @type {MessageHandler} */
+  const messages = this.messages;
+  const channel = messages.getChannel(msg.channel.id);
+  const unobserve = channel.onMessageUser((m) => {
     if (m.content.trim().toLowerCase() == "x") {
-      this.unobserveUser(oid);
-      return m.reply(this.em("Cancelled!", m));
+      unobserve();
+      return m.replyEmbed("Cancelled!");
     }
     let c = parseInt(m.content.trim().replace(/\./g, ""));
-    if (isNaN(c)) return m.reply(this.em("Invalid number! (Send 'x' to cancel)", m));
-    if (c < 0 || c > count) return m.reply(this.em("Index out of range! (`1 - " + count + "`)", m));
+    if (isNaN(c)) return m.replyEmbed("Invalid number! (Send 'x' to cancel)");
+    if (c < 0 || c > count) return m.replyEmbed("Index out of range! (`1 - " + count + "`)");
     let v = player.playResult(msg.authorId, c - 1);
-    m.reply(this.em((typeof v == "string") ? v : `Added [${v.title}](${v.url}) to the queue!`, m));
-    this.unobserveUser(oid);
-  });
+    m.replyEmbed((typeof v == "string") ? v : `Added [${v.title}](${v.url}) to the queue!`);
+    unobserve();
+  }, msg.author);
 }
 
 module.exports = {
@@ -36,11 +40,10 @@ module.exports = {
     if (!p) return;
     let query = data.get("query").value;
     let provider = data.get("provider")?.value;
-    msg.reply(this.em("Loading results...", msg)).then(async m => {
+    msg.replyEmbed("Loading results...").then(async m => {
       let res = await p.fetchResults(query, msg.authorId, provider);
-      m.edit(this.em(res.m, msg));
+      m.editEmbed(res.m);
       awaitMessage.call(this, msg, res.count, p);
     });
   }
 }
-

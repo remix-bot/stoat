@@ -20,10 +20,10 @@ module.exports = {
     const p = await this.getPlayer(message);
     if (!p) return;
     const query = data.get("query").value;
-    message.reply(this.em("Searching...", message), false).then((msg) => {
+    message.replyEmbed("Searching...").then((msg) => {
       const messages = p.play(query, false, data.get("provider").value);
       messages.on("message", (d) => {
-        msg.edit(this.em(d, message));
+        msg.editEmbed(d);
       });
     });
   }

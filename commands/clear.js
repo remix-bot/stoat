@@ -9,6 +9,6 @@ module.exports = {
     const p = await this.getPlayer(msg);
     if (!p) return;
     p.clear();
-    msg.channel.sendMessage(this.em("✅ Queue cleared.", msg));
+    msg.channel.sendEmbed("✅ Queue cleared.");
   }
 }

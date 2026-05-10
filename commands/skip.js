@@ -8,6 +8,6 @@ module.exports = {
     const p = await this.getPlayer(message);
     if (!p) return;
     let res = p.skip() || `✅ Song skipped!`;
-    message.channel.sendMessage(this.em(res, message));
+    message.channel.sendEmbed(res);
   }
 }

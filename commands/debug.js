@@ -14,7 +14,7 @@ module.exports = {
     switch(data.get("target").value) {
       case "voice":
         var servers = [];
-        var iterator = this.playerMap.entries();
+        var iterator = this.players.playerMap.entries();
         for (let v = iterator.next(); !v.done; v = iterator.next()) {
           servers.push(v.value[1]);
         };
