@@ -23,8 +23,6 @@ export class Dashboard {
     this.enabled = opts?.enabled;
     this.remix = remix;
 
-    if (!this.enabled) return this;
-
     this.db = new DatabaseManager(opts.mysql);
 
     if (!this.enabled) return this;
@@ -180,6 +178,7 @@ export class Dashboard {
    * @returns {APIUser}
    */
   static convertUser(user) {
+    if (!user) return null;
     return {
       id: user.id,
       discriminator: user.discriminator,
@@ -229,6 +228,7 @@ export class Dashboard {
    * @param {Channel} channel
    */
   static convertChannel(channel) {
+    if (!channel) return null;
     return {
       name: channel.name,
       displayName: channel.displayName,
@@ -249,6 +249,7 @@ export class Dashboard {
    * @param {Server} server
    */
   static convertServer(server) {
+    if (!server) return null;
     return {
       name: server.name,
       id: server.id,
