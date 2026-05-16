@@ -141,7 +141,11 @@ export class Dashboard {
           return { message: "Adding radio station" };
         }
         msg = player.play(query);
-        if (!msg) {
+        if (typeof msg === "string") {
+          return { error: msg };
+        }
+        console.log(msg);
+        if (!!msg) {
           player.messageChannel.sendEmbedAsUser("Searching...", user).then(m => {
             msg.on("message", (message) => {
               m.editEmbedAsUser(message, user);
@@ -149,6 +153,15 @@ export class Dashboard {
           });
         }
         return { message: "Adding to queue" };
+      case "leave":
+        if (!user) return { error: "Invalid user" };
+        if (!this.remix.players.hasPlayer(params.data.channel)) return { error: "Unknown player" };
+        player = this.remix.players.getPlayerFromMap(params.data.channel);
+        if (!player.connection.users.find(u => u.id === user.id)) return { error: "You have to be in the voice channel to perform this action" };
+        player.messageChannel.sendEmbedAsUser("Leaving Channel <#" + params.data.channel + ">", user).then(m => {
+          this.remix.players.leave(m, params.data.channel);
+        });
+        return { message: "Leaving" };
       case "testConnection":
         try {
           const channel = await this.remix.messages.getOrFetchChannel("01GS0SMQ660JH731K29T2C9RM9");
@@ -218,8 +231,8 @@ export class Dashboard {
       duration: (vid.type === "radio") ? "--:--" : ((typeof vid.duration === "object") ? vid.duration.timestamp : Utils.prettifyMS(vid.duration, "h:!m:!s")),
       description: vid.description,
       artist: {
-        name: vid.author.name || vid.artist,
-        url: vid.author.url
+        name: vid.author?.name || vid.artist,
+        url: vid.author?.url
       },
       thumbnail: vid.thumbnail
     }
