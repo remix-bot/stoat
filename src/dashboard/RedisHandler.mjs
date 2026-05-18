@@ -38,6 +38,9 @@ export class RedisHandler {
         if (data.type !== "requestConnected") return;
         this.readyMessage();
       });
+      setInterval(() => {
+        this.send(this.platform + ":ping", "" + Date.now());
+      }, 10000);
     });
   }
   readyMessage() {
