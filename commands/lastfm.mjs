@@ -33,10 +33,8 @@ export const run = async function (msg, data) {
   const mgr = this.lastFm;
   switch (data.commandId) {
     case "link":
-      console.log(await mgr.fetchRequestToken());
       const authData = await mgr.getAuthUrl(msg.authorId);
       msg.replyEmbed(this.handler.format(`Grant access on [${authData.url}](${authData.url}). Then, within an hour, come back and run \`$prefixlastfm confirm ${authData.token}\``, msg.channel.channel.serverId));
-
       break;
     case "conf":
       const error = await mgr.getAuthToken(msg.author.id, data.get("token").value);

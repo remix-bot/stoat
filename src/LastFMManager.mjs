@@ -73,9 +73,7 @@ export class LastFMManager {
       console.error("Last.fm request token error: ", res);
       return null;
     }
-    this.lastRefreshed = Date.now();
-    this.requestToken = res.token;
-    return this.requestToken;
+    return res.token;
   }
   /**
    *
