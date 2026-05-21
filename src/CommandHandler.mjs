@@ -62,7 +62,7 @@ export class CommandBuilder {
    * @param {T} req
    */
   /**
-   * @param {Config<T>} config
+   * @param {Config<CommandRequirement>} config
    * @returns {CommandBuilder}
    */
   addRequirement(config) {

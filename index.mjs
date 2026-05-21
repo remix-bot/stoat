@@ -11,6 +11,7 @@ import childProcess from "node:child_process";
 import { Manager } from "moonlink.js";
 import { Dashboard } from "./src/dashboard/Dashboard.mjs";
 import { categories } from "./src/helpCatalog.mjs";
+import { LastFMManager } from "./src/LastFMManager.mjs";
 
 export class Remix {
   constructor() {
@@ -26,6 +27,7 @@ export class Remix {
       ...config["stoat.js"],
     });
     this.client = client;
+    this.lastFm = new LastFMManager(config.lastfm, this.dashboard.db);
     const messages = new MessageHandler(this.client);
     this.messages = messages;
     const commands = new CommandHandler(messages);

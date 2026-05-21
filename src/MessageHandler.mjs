@@ -1,5 +1,5 @@
 import { Revoice } from "revoice.js";
-import { Client, User, Message as StoatMessage, Channel as StoatChannel, ServerMember, Server } from "revolt.js";
+import { Client, User as StoatUser, Message as StoatMessage, Channel as StoatChannel, ServerMember, Server } from "revolt.js";
 import { Utils } from "./Utils.mjs";
 
 export class MessageHandler {
@@ -313,7 +313,7 @@ export class MessageHandler {
 
   /**
    * @param {string} content
-   * @param {User} user
+   * @param {StoatUser} user
    * @param {StoatChannel} channel
    * @returns {Promise<Message>}
    */
@@ -333,7 +333,7 @@ export class MessageHandler {
   /**
    *
    * @param {string} content
-   * @param {User} user
+   * @param {StoatUser} user
    * @param {StoatMessage} message
    */
   async editEmbedAsUser(content, user, message) {
@@ -493,6 +493,20 @@ export class MessageHandler {
   }
 
   /**
+   * Open DMs with a user. This will return null if an error occurs. I assume this might happen if the user doesn't allow DMs.
+   * @param {StoatUser} user
+   */
+  async openDMs(user) {
+    try {
+      const channel = await user.openDM();
+      return new Channel(channel, this);
+    } catch (e) {
+      console.warn("Error opening DMs: ", e);
+      return null;
+    }
+  }
+
+  /**
    * @typedef {Object} VoiceConnection
    * @description Placeholder as it is not exported by revoice
    */
@@ -538,7 +552,7 @@ export class Channel {
   }
   /**
    * @param {MessageListener} callback
-   * @param {User} user
+   * @param {StoatUser} user
    * @returns {Function} call to remove the listener
    */
   onMessageUser(callback, user) {
@@ -564,7 +578,7 @@ export class Channel {
   }
   /**
    * @param {string} content
-   * @param {User} user
+   * @param {StoatUser} user
    * @returns {Promise<Message>}
    */
   sendEmbedAsUser(content, user) {
@@ -602,7 +616,7 @@ export class Message {
   get id() {
     return this.message.id;
   }
-  /** @type {User} */
+  /** @type {StoatUser} */
   get author() {
     return this.message.author;
   }
@@ -628,7 +642,7 @@ export class Message {
    *
    * @param {string[]} reactions The reactions to listen to.
    * @param {function} callback Will be called if a matching reaction event is observed.
-   * @param {User} user A stoat.js user object of the user you want to listen for.
+   * @param {StoatUser} user A stoat.js user object of the user you want to listen for.
    * @returns {function} close A function with zero arguments that unobserves this message. The callback will not be called again.
    */
   onReaction(reactions, callback, user=null) {
@@ -666,7 +680,7 @@ export class Message {
   /**
    *
    * @param {string} content
-   * @param {User} user
+   * @param {StoatUser} user
    * @returns
    */
   editEmbedAsUser(content, user) {
