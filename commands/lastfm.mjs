@@ -39,8 +39,8 @@ export const run = async function (msg, data) {
 
       break;
     case "conf":
-      console.log(data.get("token"));
-      console.log(await mgr.getAuthToken(data.get("token").value));
+      const error = await mgr.getAuthToken(msg.author.id, data.get("token").value);
+      msg.replyEmbed((!error) ? "Your account has successfully been connected to lastfm." : error);
       break;
     default:
       msg.replyEmbed("An error occured. Error: `INTERNAL_COMMAND_ERROR`", false, { colour: "red" });

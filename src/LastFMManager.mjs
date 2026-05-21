@@ -16,6 +16,9 @@ export class LastFMManager {
 
     /** @type {Map<string, string>} */
     this.tokens = new Map();
+
+    /** @type {Map<string, {username: string, key: string, linked: number}>} */
+    this.sessions = new Map();
   }
   /**
    *
@@ -41,12 +44,6 @@ export class LastFMManager {
       p[param.name] = param.value;
     });
     p.format = "json";
-    /* const p = new URLSearchParams();
-    p.append("method", method.toLowerCase());
-    params.forEach(param => {
-      p.append(param.name, param.value);
-    });
-    p.append("format", "json"); */
     return await (fetch(this.constructUrl(path, p))
       .then(response => response.json()))
   }
@@ -107,8 +104,31 @@ export class LastFMManager {
       name: "api_sig", value: sig
     }]);
 
+    if (res.error) {
+      console.error("Last.fm error for user " + userId + ": ", res);
+      return "An error occured during the verification of the token. Please restart the linking process or contact an administrator.";
+    }
+    this.tokens.delete(userId);
 
-    console.log(res);
+    const session = res.session;
+    const success = await this.db.storeLastFmSession(userId, session.name, session.key);
+    if (!success) return "An error occured while storing your token. Please contact an administrator if this happens again.";
+    this.sessions.set(userId, {
+      username: res.name,
+      key: res.key,
+      linked: Date.now()
+    });
+  }
+  /**
+   * Get from cache or database
+   * @param {string} userId
+   */
+  async getSession(userId) {
+    if (this.sessions.has(userId)) return this.sessions.get(userId);
+    const res = await this.db.getLastFmSession(userId);
+    if (!res) return null;
+    this.session.set(userId, res);
+    return res;
   }
 
   /**
