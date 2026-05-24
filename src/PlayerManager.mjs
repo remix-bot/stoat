@@ -223,6 +223,7 @@ export class PlayerManager {
         type: "close"
       }, p);
       unsubscribe();
+      this.playerMap.delete(cid);
     });
     p.on("message", (m) => {
       if (this.settings.getServer(message.channel.server.id).get("songAnnouncements") == "false") return;
