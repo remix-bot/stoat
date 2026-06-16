@@ -172,7 +172,7 @@ export class PlayerManager {
    */
   async leave(msg, cid) {
     const p = this.playerMap.get(cid);
-    if (!p) return m.editEmbed(`Player not found`);
+    if (!p) return msg.replyEmbed(`Player not found`);
     const m = await msg.replyEmbed("Leaving...");
     const left = p.leave();
     p.destroy();
