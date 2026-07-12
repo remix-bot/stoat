@@ -190,7 +190,7 @@ export class MessageHandler {
     if (idx === -1) return;
     current.splice(idx);
     if (current.length === 0) return this.observedChannels.delete(channelId);
-    this.observedChannels.set(current, current);
+    this.observedChannels.set(channelId, current);
   }
 
   #masquerade(channel) {
@@ -417,8 +417,8 @@ export class MessageHandler {
       unsubscribe();
       const lastContent = builder.getPage(page);
       m.editEmbed({
-        embedText: lastContent + "\nSession closed - Changing pages **won't work** from here.",
-        content: "Session Closed"
+        content: lastContent + "\nSession closed - Changing pages **won't work** from here.",
+        embedText: "Session Closed"
       }, {
         colour: "red"
       });

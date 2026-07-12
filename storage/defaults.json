@@ -1,7 +1,7 @@
 {
   "values": {
     "songAnnouncements": true,
-    "prefix": "%",
+    "prefix": "!",
     "pfp": "default",
     "locale": "en",
     "restrictVolume": false

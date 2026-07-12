@@ -49,7 +49,7 @@ export class PlayerManager {
     return new Promise(async res => {
       if (msg.channel.channel.type === "Group") {
         return this.initPlayer(msg, msg.channel.id, (p) => {
-          if (!p.connection.users.find(u => u.id == msg.author.id)) {
+          if (!p.connection.users?.find(u => u.id == msg.author.id)) {
             msg.replyEmbed("You don't seem to be connected to <#" + msg.channel.id + ">. Did you forget to join?");
           }
           res(msg.channel.id);
@@ -75,7 +75,7 @@ export class PlayerManager {
         const idx = reactions.findIndex(r => r === e.emoji_id);
         const c = channels[idx];
         this.initPlayer(msg, c.id, (p) => {
-          if (!p.connection.users.find(u => u.id == msg.author.id)) {
+          if (!p.connection.users?.find(u => u.id == msg.author.id)) {
             msg.replyEmbed("You don't seem to be connected to <#" + c.id + ">. Did you forget to join?", true);
           }
           res(c.id);
@@ -99,7 +99,7 @@ export class PlayerManager {
         unsubscribeMessages();
         unsubscribeReactions();
         this.initPlayer(m, channel, (p) => {
-          if (!p.connection.users.find(u => u.id == msg.author.id)) {
+          if (!p.connection.users?.find(u => u.id == msg.author.id)) {
             msg.replyEmbed("You don't seem to be connected to <#" + channel + ">. Did you forget to join?");
           }
           res(channel);
@@ -148,7 +148,7 @@ export class PlayerManager {
           res(p);
         });
       }));
-      if (!player.connection.users.find(u => u.id == message.author.id)) {
+      if (!player.connection.users?.find(u => u.id == message.author.id)) {
         message.replyEmbed("You don't seem to be connected to <#" + cid + ">. Did you forget to join?", true);
       }
       return player;
@@ -238,34 +238,41 @@ export class PlayerManager {
     });
     this.playerMap.set(cid, p);
     message.replyEmbed("Joining Channel...").then(async message => {
-      await p.join(cid);
-      message.editEmbed(`✅ Successfully joined <#${cid}>`);
-      cb(p);
+      try {
+        await p.join(cid);
+        message.editEmbed(`✅ Successfully joined <#${cid}>`);
+        cb(p);
 
-      // TODO: listen to joining/leaving users
-      p.connection.on("userJoin", (user) => {
-        console.log("join", user);
-        const u = Dashboard.convertUser(this.commands.client.users.get(user.id));
-        this.dashboard.updatePlayer({
-          type: "join",
-          data: u,
-        }, p);
-        this.dashboard.updateUser({
-          type: "join",
-          data: cid,
-        }, u);
-      });
-      p.connection.on("userleave", (user) => {
-        const u = Dashboard.convertUser(this.commands.client.users.get(user.id));
-        this.dashboard.updatePlayer({
-          type: "leave",
-          data: u,
-        }, p);
-        this.dashboard.updateUser({
-          type: "leave",
-          data: cid,
-        }, u);
-      });
+        // TODO: listen to joining/leaving users
+        p.connection.on("userJoin", (user) => {
+          console.log("join", user);
+          const u = Dashboard.convertUser(this.commands.client.users.get(user.id));
+          this.dashboard.updatePlayer({
+            type: "join",
+            data: u,
+          }, p);
+          this.dashboard.updateUser({
+            type: "join",
+            data: cid,
+          }, u);
+        });
+        p.connection.on("userleave", (user) => {
+          const u = Dashboard.convertUser(this.commands.client.users.get(user.id));
+          this.dashboard.updatePlayer({
+            type: "leave",
+            data: u,
+          }, p);
+          this.dashboard.updateUser({
+            type: "leave",
+            data: cid,
+          }, u);
+        });
+      } catch (err) {
+        console.error("[PlayerManager] Failed to join channel:", err);
+        message.editEmbed(`❌ Failed to join <#${cid}>. The voice server may be unavailable.`);
+        p.destroy();
+        this.playerMap.delete(cid);
+      }
     });
   }
   /**

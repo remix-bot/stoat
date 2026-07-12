@@ -132,9 +132,9 @@ export class MySqlSettingsManager extends SettingsManager {
     this.load();
   }
 
-  query(query) {
+  query(query, params = []) {
     return new Promise(res => {
-      this.db.query(query, (error, results, fields) => { res({ error, results, fields })});
+      this.db.query(query, params, (error, results, fields) => { res({ error, results, fields })});
     });
   }
 
@@ -159,11 +159,11 @@ export class MySqlSettingsManager extends SettingsManager {
     this.emit("ready");
   }
   async remoteUpdate(server, key) {
-    const r = await this.query("UPDATE settings SET data = JSON_SET(data, '$." + key + "', '" + server.data[key] + "') WHERE id='" + server.id + "'")
+    const r = await this.query("UPDATE settings SET data = JSON_SET(data, ?, ?) WHERE id = ?", ['$.' + key, server.data[key], server.id])
     if (r.error) console.error("settings update error; ", r.error);
   }
   async remoteSave(server) {
-    const r = await this.query("UPDATE settings SET data = '" + JSON.stringify(server.data) + "' WHERE id='" + server.id + "'");
+    const r = await this.query("UPDATE settings SET data = ? WHERE id = ?", [JSON.stringify(server.data), server.id]);
     if (r.error) console.error("settings server save error; ", r.error);
   }
 
@@ -186,7 +186,7 @@ export class MySqlSettingsManager extends SettingsManager {
     });
   }
   async create(id, server) {
-    const r = await this.query("INSERT INTO settings (id, data) VALUES ('" + id + "', '" + JSON.stringify(server.data) +  "')");
+    const r = await this.query("INSERT INTO settings (id, data) VALUES (?, ?)", [id, JSON.stringify(server.data)]);
     if (r.error) console.error("settings create server error; ", r.error);
   }
 
@@ -207,6 +207,11 @@ export class MySqlSettingsManager extends SettingsManager {
     return this.guilds.has(id);
   }
   getServer(id) {
-    return (!this.guilds.has(id)) ? new ServerSettings(id, this) : this.guilds.get(id);
+    if (!this.guilds.has(id)) {
+      const server = new ServerSettings(id, this);
+      this.guilds.set(id, server);
+      return server;
+    }
+    return this.guilds.get(id);
   }
 }
