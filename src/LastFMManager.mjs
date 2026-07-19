@@ -125,7 +125,7 @@ export class LastFMManager {
     if (this.sessions.has(userId)) return this.sessions.get(userId);
     const res = await this.db.getLastFmSession(userId);
     if (!res) return null;
-    this.session.set(userId, res);
+    this.sessions.set(userId, res);
     return res;
   }
 
