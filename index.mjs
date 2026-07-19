@@ -28,7 +28,8 @@ export class Remix {
     });
     this.client = client;
     this.lastFm = new LastFMManager(config.lastfm, this.dashboard.db);
-    const messages = new MessageHandler(this.client);
+    this.revoice = new Revoice(config.token || config.login, config["stoat-api"] || config["revolt-api"]);
+    const messages = new MessageHandler(this.client, this.revoice);
     this.messages = messages;
     const commands = new CommandHandler(messages);
     const settings = new MySqlSettingsManager(config.mysql, "./storage/defaults.json");
@@ -72,7 +73,6 @@ export class Remix {
       console.log("Modules loaded.");
     });
 
-    this.revoice = new Revoice(config.token || config.login, config["stoat-api"] || config["revolt-api"]);
     this.observedVoiceUsers = new Map();
 
     try {

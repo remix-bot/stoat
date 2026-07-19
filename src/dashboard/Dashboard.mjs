@@ -157,7 +157,7 @@ export class Dashboard {
         if (!user) return { error: "Invalid user" };
         if (!this.remix.players.hasPlayer(params.data.channel)) return { error: "Unknown player" };
         player = this.remix.players.getPlayerFromMap(params.data.channel);
-        if (!player.connection.users.find(u => u.id === user.id)) return { error: "You have to be in the voice channel to perform this action" };
+        if (!player.connection.users?.find(u => u.id === user.id)) return { error: "You have to be in the voice channel to perform this action" };
         player.messageChannel.sendEmbedAsUser("Leaving Channel <#" + params.data.channel + ">", user).then(m => {
           this.remix.players.leave(m, params.data.channel);
         });
@@ -340,6 +340,7 @@ export class Dashboard {
    * @param {Player} player
    */
   playerUpdate(details, player) {
+    if (!this.enabled) return;
     const serialised = Dashboard.convertPlayer(player);
     this.redis.send(this.redis.platform + ":players", JSON.stringify({
       ...details,
@@ -351,6 +352,7 @@ export class Dashboard {
    * @param {Player} player
    */
   updatePlayer(details, player) {
+    if (!this.enabled) return;
     const channel = this.redis.platform + ":player_" + player.connection.channelId;
     this.redis.send(channel, JSON.stringify(details));
   }
@@ -359,6 +361,7 @@ export class Dashboard {
    * @param {User} user
    */
   userUpdate(details, user) {
+    if (!this.enabled) return;
     const channel = this.redis.platform + ":users";
     this.redis.send(channel, JSON.stringify({
       ...details,
@@ -366,6 +369,7 @@ export class Dashboard {
     }));
   }
   updateUser(details, user) {
+    if (!this.enabled) return;
     const channel = this.redis.platform + ":user_" + user.id;
     this.redis.send(channel, JSON.stringify(details));
   }
@@ -388,7 +392,7 @@ export class Dashboard {
     if (res.length === 0) return "If this is a valid code, it was not created for your account.";
     for (let i = 0; i < res.length; i++) {
       if ((await this.db.compareHash(code, res[i].token))) {
-        if (Date.now() - this.expiryTime > (new Date(res[i].createdAt)).getTime()) return res("Login token expired");
+        if (Date.now() - this.expiryTime > (new Date(res[i].createdAt)).getTime()) return "Login token expired";
         await this.db.execute("UPDATE login_codes SET verified=true WHERE id=?", [res[i].id]);
         return null;
       }
