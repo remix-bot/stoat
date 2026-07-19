@@ -190,7 +190,7 @@ export class MessageHandler {
     if (idx === -1) return;
     current.splice(idx);
     if (current.length === 0) return this.observedChannels.delete(channelId);
-    this.observedChannels.set(current, current);
+    this.observedChannels.set(channelId, current);
   }
 
   #masquerade(channel) {

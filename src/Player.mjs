@@ -87,7 +87,7 @@ export class Queue extends EventEmitter {
       data: {
         index: idx,
         old: this.data.slice(),
-        removed: this.data.splice(idx, 1),
+        removed: this.data.splice(idx, 1)[0],
         new: this.data
       }
     });
@@ -113,7 +113,7 @@ export class Queue extends EventEmitter {
       }
     });
     if (!top) return this.data.push(data);
-    return this.data.queue.unshift(data);
+    return this.data.unshift(data);
   }
   clear() {
     this.data.length = 0;
@@ -267,7 +267,7 @@ export default class Player extends EventEmitter {
           res(data.data);
         }
       });
-      worker.on("exit", (code) => { if (code == 0) rej(code) });
+      worker.on("exit", (code) => { if (code !== 0) rej(code) });
     });
   }
 
@@ -414,7 +414,7 @@ export default class Player extends EventEmitter {
     if (!index && index != 0) throw "Index can't be empty";
     const oldSize = this.queue.size();
     const msg = this.queue.remove(index);
-    if (oldSize != this.queue.size()) this.emit("udpate", "queue");
+    if (oldSize != this.queue.size()) this.emit("update", "queue");
     return msg;
   }
   async nowPlaying() {

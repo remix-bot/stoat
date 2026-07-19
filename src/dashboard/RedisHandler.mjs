@@ -8,7 +8,15 @@ export class RedisHandler {
    * @param {RedisClientOptions} opts.redis
    */
   constructor(opts) {
-    this.client = createClient(opts.redis);
+    const reconnectStrategy = (retries) => {
+      if (retries > 10) return new Error("Redis retry limit exceeded");
+      return Math.min(retries * 200, 5000);
+    };
+
+    this.client = createClient({
+      ...opts.redis,
+      socket: { reconnectStrategy }
+    });
     this.client.on("error", (err) => {
       console.log("[Redis/Main] Error: ", err);
     });
@@ -17,7 +25,9 @@ export class RedisHandler {
       this.readyMessage();
     });
 
-    this.subscriber = this.client.duplicate();
+    this.subscriber = this.client.duplicate({
+      socket: { reconnectStrategy }
+    });
     this.subscriber.on("error", (err) => {
       console.log("[Redis/Subscriber] Error: ", err);
     })

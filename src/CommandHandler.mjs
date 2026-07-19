@@ -815,7 +815,7 @@ export class CommandHandler extends EventEmitter {
 
       if (args.length > 1 && Utils.isNumber(args[1])) {
         const pageNumber = parseInt(args[1]);
-        if (pageNumber < 1 || pageNumber > this.helpHandler.pageNumber()) return this.replyHandler("`" + newPage + "` is not a valid page number!", msg);
+        if (pageNumber < 1 || pageNumber > this.helpHandler.pageNumber()) return this.replyHandler("`" + args[1] + "` is not a valid page number!", msg);
         return this.replyHandler(this.helpHandler.getHelpPage(pageNumber - 1, msg), msg);
       }
 
@@ -1079,7 +1079,7 @@ export class CommandHandler extends EventEmitter {
       if (idx === -1) return;
       this.commandNames.splice(idx, 1);
     });
-    const idx = this.commands.findIndex(c => c.uid == builder.uid);
+    const idx = this.commands.findIndex(c => c.uid == command.uid);
     if (idx == -1) return;
     this.commands.splice(idx, 1);
   }
@@ -1120,7 +1120,7 @@ export class CommandLoader {
       const runFc = this.runnables.get(data.command.uid);
       if (typeof runFc.then === "function") {
         // async function
-        return runFc.calls(this.context, data.message, data).catch(e => {
+        return runFc.call(this.context, data.message, data).catch(e => {
           const id = Utils.uid();
           console.log("Error running command; error id #" + id, e);
           data.message.replyEmbed("An error occured. If this happens frequently, please contact ShadowLp174#0667 (<@01G9MCW5KZFKT2CRAD3G3B9JN5>)!\n\nError id: `#" + id + "`", true, { colour: "red" });
