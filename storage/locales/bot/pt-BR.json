@@ -2,17 +2,117 @@
   "cmdBuilder" : {
     "requirement" : {
       "permission" : "Você não tem as permissões necessárias para executar este comando!"
+    },
+    "subcommand" : {
+      "invalid" : "Subcomando inválido. Tente uma das seguintes opções: `$previousCmd <$cmdlist>`"
     }
   },
   "cmdHandler" : {
     "command" : {
-      "invalid" : "Comando desconhecido {{command}}!"
+      "invalid" : "Comando desconhecido {{command}}!",
+      "suggestion" : "Você quis dizer {{command}}? (Digite {{acceptCommand}} para executar este comando)"
     },
+    "help" : {
+      "pageStructure" : "Comandos Disponíveis (página $currPage/$maxPage): \n\n$content\n\nExecute `$prefix$helpCmd <comando>` para saber mais sobre ele. Você também pode incluir subcomandos.\nPor exemplo: `$prefix$helpCmd settings get`\n\nDica: Use as setas abaixo desta mensagem para virar as páginas, ou especifique a página desejada usando `$prefix$helpCmd <número da página>`"
+    },
+    "invalidFlag" : "Flag inválida `$invalidFlag`. Ela não corresponde a nenhuma opção deste comando.\n`$previousCmd $invalidFlag`",
     "page" : {
-      "invalid" : "{{number}} não é um n"
+      "invalid" : "{{number}} não é um número de página válido!"
+    },
+    "permissions" : {
+      "message" : "Por favor, conceda-me a permissão {{permission}} em {{channel}} ou entre em contato com um administrador do servidor. Não consigo funcionar sem ela."
     }
   },
   "commands" : {
-    "clear" : "Remover todas m"
+    "clear" : "Remove todas as músicas da fila.",
+    "join" : "Faz o bot entrar em um canal de voz específico.",
+    "leave" : "Faz o bot sair do seu canal de voz atual",
+    "list" : "Lista as músicas na fila do seu canal de voz atual.",
+    "login" : "Confirma o login da sua conta no site",
+    "loop" : "Ativa/desativa o loop da sua fila/música.",
+    "lyrics" : "Busca a letra da música atual. Observe que a letra pode ser diferente da original, já que o Genius nem sempre encontra a música correta.",
+    "np" : "Solicita o nome e a url da música que está tocando no momento.",
+    "pause" : "Pausa a reprodução no seu canal de voz",
+    "ping" : "Meu prefixo neste servidor é: {{prefix}}\n\nUse {{helpCmd}} para começar!",
+    "play" : "Toca um vídeo do youtube a partir de uma url/consulta ou uma playlist por url. Outros serviços também são suportados.\nAs buscas serão feitas no `Youtube Music` por padrão.\nSe quiser buscar no `YouTube`, você precisará especificar isso com `-u yt` explicitamente.",
+    "player" : "Cria um controle de player por emojis para o seu canal de voz",
+    "playnext" : "O mesmo que %play. O resultado será adicionado ao topo da fila.",
+    "remove" : "Remove uma música específica da fila.",
+    "resume" : "Retoma a reprodução no seu canal de voz",
+    "search" : "Exibe os resultados da busca para uma determinada consulta",
+    "settings" : "Altera/Obtém configurações no servidor atual.",
+    "shuffle" : "Reordena a fila de forma aleatória.",
+    "skip" : "Pula a música que está tocando no momento.",
+    "stats" : "Exibe estatísticas sobre o bot, como o tempo de atividade.",
+    "support" : "O servidor de suporte do Remix. Fique à vontade para pedir ajuda, reportar bugs ou apenas conversar :)",
+    "thumbnail" : "Solicita a miniatura da música que está tocando no momento.",
+    "volume" : "Altera o volume atual."
+  },
+  "options" : {
+    "join" : {
+      "channel" : "Especifique o canal que o bot deve entrar. Isso é necessário devido a limitações (atuais) do Revolt."
+    },
+    "login" : {
+      "id" : "O id que você recebeu ao fazer login no painel."
+    },
+    "loop" : {
+      "type" : "Especifica qual loop deve ser ativado/desativado."
+    },
+    "play" : {
+      "query" : "Uma consulta/url do YouTube, url de playlist, ou um link para uma música do Spotify, SoundCloud ou YouTube Music."
+    },
+    "playnext" : {
+      "query" : "Uma consulta/url do YouTube, url de playlist, ou um link para uma música do Spotify, SoundCloud ou YouTube Music."
+    },
+    "remove" : {
+      "index" : "A posição da música na fila. Você pode ver os índices com o comando 'list'"
+    },
+    "search" : {
+      "provider" : "O provedor de resultados de busca (YouTube ou YouTube Music). Padrão: Youtube Music",
+      "query" : "A consulta a ser pesquisada."
+    },
+    "settings" : {
+      "get" : {
+        "setting" : "Obtém o valor atual de uma configuração."
+      },
+      "set" : {
+        "setting" : "O nome da configuração que você quer definir.",
+        "value" : "O novo valor."
+      }
+    },
+    "volume" : {
+      "volume" : "O novo volume em porcentagem (ex: `30` ou `100`). Se você ultrapassar 100% pode haver perda de qualidade."
+    }
+  },
+  "pagination" : {
+    "embed" : {
+      "sclosedContent" : "{{content}}\nSessão encerrada - Trocar de página **não funcionará** a partir daqui.",
+      "sclosedTitle" : "Sessão Encerrada"
+    },
+    "error" : {
+      "perms" : {
+        "messages" : "Não consigo enviar mensagens em {{channel}}. Entre em contato com um administrador do servidor e conceda-me a permissão \"SendMessage\".",
+        "reactions" : "Preciso de permissões de reação para funcionar. Entre em contato com um administrador do servidor para resolver isso."
+      }
+    }
+  },
+  "subcommands" : {
+    "settings" : {
+      "get" : "Obtém o valor de uma configuração específica ou as configurações do servidor.",
+      "set" : "Define o valor de uma configuração específica."
+    }
+  },
+  "voice" : {
+    "join" : {
+      "cancelled" : "Cancelado!",
+      "error" : {
+        "dc" : "Não parece que estamos no mesmo canal de voz.",
+        "invalid" : "Canal de voz inválido. Tente novamente e verifique a capitalização! (`x` para cancelar)",
+        "perms" : "Algo deu errado. Não foi possível entrar em {{channel}}. Tenho as permissões necessárias?"
+      },
+      "warning" : {
+        "nc" : "Você não parece estar conectado a {{channel}}. Esqueceu de entrar?"
+      }
+    }
   }
 }
