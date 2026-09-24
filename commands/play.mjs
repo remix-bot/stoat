@@ -21,6 +21,7 @@ export const run = async function(message, data) {
   const query = data.get("query").value;
   message.replyEmbed("Searching...").then((msg) => {
     const messages = p.play(query, false, data.get("provider").value);
+    if (typeof messages === "string") return message.replyEmbed(messages);
     messages.on("message", (d) => {
       msg.editEmbed(d);
     });
