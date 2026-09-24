@@ -35,7 +35,8 @@ export const run = async function (msg, data) {
 
   const radio = this.config.radio.find(e => e.name === data.get("station").value);
   msg.channel.sendEmbed("Adding radio station to queue...").then(m => {
-    const _messages = p.playRadio(radio);
+    const messages = p.playRadio(radio);
+    if (typeof messages === "string") return msg.replyEmbed(messages);
     m.editEmbed("Added `" + radio.detailedName + "` to the queue.");
   });
 };

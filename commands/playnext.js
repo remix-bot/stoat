@@ -21,6 +21,7 @@ module.exports = {
     const query = data.get("query").value; // only 1 text option registered
     message.replyEmbed("Searching...").then((msg) => {
       const messages = p.playFirst(query, data.get("provider").value);
+      if (typeof messages === "string") return message.replyEmbed(messages);
       messages.on("message", (d) => {
         msg.editEmbed(d, message);
       });
