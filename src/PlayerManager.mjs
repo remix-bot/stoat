@@ -4,6 +4,7 @@ import { CommandHandler } from "./CommandHandler.mjs";
 import { Message } from "./MessageHandler.mjs";
 import { SettingsManager } from "./Settings.mjs";
 import { Dashboard } from "./dashboard/Dashboard.mjs";
+import { Utils } from "./Utils.mjs";
 
 export class PlayerManager {
   /** @type {Revoice} */
@@ -247,7 +248,17 @@ export class PlayerManager {
     this.playerMap.set(cid, p);
     message.replyEmbed("Joining Channel...").then(async message => {
       try {
-        await p.join(cid);
+        try {
+          await p.join(cid);
+        } catch (e) {
+          this.playerMap.delete(cid);
+          unsubscribe();
+          // TODO: cleanup
+          p.destroy();
+          const id = Utils.uid();
+          console.warn(`Joining channel ${cid} failed, uid: ${id}, reason: `, e);
+          return message.editEmbed(`❌ Failed to connect to <#${cid}>. If this happens frequently, please contact an administrator and provide the incident id. \nIncident ID: \`${id}\``);
+        }
         message.editEmbed(`✅ Successfully joined <#${cid}>`);
         cb(p);
 

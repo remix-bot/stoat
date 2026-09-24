@@ -610,7 +610,8 @@ export default class Player extends EventEmitter {
     return true;
   }
   destroy() {
-    return this.connection.destroy();
+    if (!this.connection.destroy) return;
+    return this.connection?.destroy();
   }
   /**
    * Gracefull shutdown and export for later reinstatement.
@@ -714,7 +715,7 @@ export default class Player extends EventEmitter {
   }
   play(query, top = false, provider) { // top: where to add the results in the queue (top/bottom)
     let prep = this.preparePlay();
-    if (prep) return prep;
+    if (!!prep) return prep;
 
     const events = new EventEmitter();
     this.workerJob("generalQuery", { query: query, spotify: this.spotifyConfig, provider: provider }, (msg) => {
