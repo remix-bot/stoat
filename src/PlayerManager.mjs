@@ -85,7 +85,14 @@ export class PlayerManager {
         unsubscribeReactions();
       }, msg.author);
 
+      var attempts = 0;
       unsubscribeMessages = msg.channel.onMessageUser((m) => {
+        if (attempts === 3) {
+          unsubscribeMessages();
+          unsubscribeReactions();
+          m.replyEmbed("Auto-cancelled input. Please re-run the command to restart.")
+          return res(false);
+        }
         if (m.content.toLowerCase() === "x") {
           unsubscribeMessages();
           unsubscribeReactions();
@@ -93,6 +100,7 @@ export class PlayerManager {
           return res(false);
         }
         if (!this.commands.validateInput("voiceChannel", m.content, m)) {
+          attempts++;
           return m.replyEmbed("Invalid voice channel. Please try again and check capitalization! (`x` to cancel)");
         }
         const channel = this.commands.formatInput("voiceChannel", m.content, m);

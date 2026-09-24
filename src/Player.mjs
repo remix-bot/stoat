@@ -503,7 +503,13 @@ export default class Player extends EventEmitter {
   // functional core
   // TODO: potentially touch up the following parts as well
   async streamResource(url) {
-    const response = await axios({ method: 'get', url: url, responseType: 'stream' });
+    var response;
+    try {
+      response = await axios({ method: 'get', url: url, responseType: 'stream' });
+    } catch (e) {
+      console.error("Axios error streaming resource: ", e);
+      return null;
+    }
     const buffered = new PassThrough({
       highWaterMark: 10 * 1024 * 1024,
     });
@@ -552,12 +558,16 @@ export default class Player extends EventEmitter {
     if (songData.type == "external" || songData.type == "radio") {
       streamUrl = songData.url;
     } else if (songData.encoded) {
-      const node = await this.getNode();
-      const load = (await node.loadDirectStream({
-        encoded: songData.encoded
-      }, 100, 0));
-      streamUrl = null;
-      directStream = load.stream;
+      try {
+        const node = await this.getNode();
+        const load = (await node.loadDirectStream({
+          encoded: songData.encoded
+        }, 100, 0));
+        streamUrl = null;
+        directStream = load.stream;
+      } catch (e) {
+        console.error("Error loading direct stream: ", e);
+      }
     }
 
     const stream = (streamUrl) ? await this.streamResource(streamUrl) : directStream;
