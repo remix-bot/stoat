@@ -645,7 +645,7 @@ export class HelpHandler {
     cmd.options.forEach(o => {
       if (o.type === "text") return;
       if (o instanceof Flag)
-        return options += (o.type === "choice") ? "-" + o.aliases[0] + " <" + o.choices.join(" | ") + ">" : " -" + o.aliases[0] + " '" + o.type + "'";
+        return options += (o.type === "choice") ? " -" + o.aliases[0] + " <" + o.choices.join(" | ") + ">" : " -" + o.aliases[0] + " '" + o.type + "'";
       options += (o.type === "choice") ? " <" + o.choices.join(" | ") + ">" : " '" + o.name + ": " + o.type + "'";
     });
     let o = cmd.options.find(e => e.type === "text");
