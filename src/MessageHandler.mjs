@@ -1,5 +1,5 @@
 import { Revoice } from "revoice.js";
-import { Client, User as StoatUser, Message as StoatMessage, Channel as StoatChannel, ServerMember, Server } from "revolt.js";
+import { Client, User as StoatUser, Message as StoatMessage, Channel as StoatChannel, ServerMember, Server as StoatServer, File } from "revolt.js";
 import { Utils } from "./Utils.mjs";
 
 export class MessageHandler {
@@ -153,6 +153,35 @@ export class MessageHandler {
     const c = this.getChannel(id);
     if (c) return c;
     return new Channel(await this.client.channels.fetch(id), this);
+  }
+  /**
+   * Get a cached server (groups also count) by id.
+   *
+   * @param {string} id
+   * @returns {Server}
+   */
+  getServer(id) {
+    const s = this.client.servers.get(id);
+    if (s) return new Server(s, this, false);
+    const c = this.client.channels.get(id);
+    if (!c) return null;
+    if (c.type !== "Group") return null;
+    return new Server(c, this, true);
+  }
+  /**
+   * Analog to .getOrFetch
+   * @param {string} id
+   * @returns {Promise<Server>}
+   */
+  async getOrFetchServer(id) {
+    const s = this.getServer(id);
+    if (s) return s;
+    const fetched = await this.client.servers.fetch(id);
+    if (fetched) return new Server(fetched, this, false);
+    const c = await this.client.channels.fetch(id);
+    if (!c) return null;
+    if (c.type !== "Group") return null;
+    return new Server(c, this, true);
   }
 
   observeReactions(msg, reactions, cb, user) {
@@ -520,6 +549,116 @@ export class MessageHandler {
   }
 }
 
+export class Member {
+  // TODO: handle permissions inside groups
+  member;
+
+  constructor(medium, handler, groupMember=false) {
+    this.handler = handler;
+    this.groupMember = groupMember;
+  }
+
+  hasPermission(permission) {
+
+  }
+}
+
+export class Server {
+  /**
+   * The actual underlying stoat.js server instance
+   * @type {StoatServer}
+   */
+  server;
+  /**
+   * Either `server` or this property are set with the underlying instances, depending on if this is a group or not.
+   * @type {StoatChannel}
+   */
+  channel; // separate properties for cleaner type hints
+  /** @type {Channel} */
+  wrappedChannel;
+  /** @type {MessageHandler} */
+  handler;
+
+  /**
+   * @param {StoatServer | StoatChannel} medium
+   * @param {MessageHandler} handler
+   * @param {boolean} [isGroup] If set, will initialise this instance as a group
+   */
+  constructor(medium, handler, isGroup=false) {
+    this.handler = handler;
+    if (isGroup) {
+      this.wrappedChannel = this.handler.getChannel(medium.id);
+      this.channel = medium;
+    } else {
+      this.server = medium;
+    }
+
+    this.isGroup = isGroup;
+  }
+
+  /** @type {File | undefined} */
+  get icon() {
+    return (this.isGroup) ? this.channel.icon : this.server.icon;
+  }
+  /** @type {string} */
+  get iconURL() {
+    return this.channel?.iconURL || this.server?.iconURL;
+  }
+  /** @type {string} */
+  get animatedIconURL() {
+    return this.channel?.animatedIconURL || this.server?.animatedIconURL;
+  }
+  /** @type {string} */
+  get name() {
+    return (this.isGroup) ? this.channel.name : this.server.name;
+  }
+  /** @type {string} */
+  get id() {
+    return (this.isGroup) ? this.channel.id : this.server.id;
+  }
+
+
+  /**
+   * Permission strings which require ownership inside groups or which are not functional and will always return `false` on `havePermission()`
+   * NOTE: in this implementation, `ManageServer` is equivalent to `ManageChannel` in a group context.
+   *       This is a design decision of this wrapper layer to unify Server and Group management,
+   *       however it does not reflect Stoat's design.
+   */
+  ownerPerms = ["ManageServer", "ManageChannel", "ManagePermissions", "KickMembers"];
+  invalidGroupPerms = ["BanMembers", "TimeoutMembers", "ManageCustomisation", "ManageRoles", "ManagePermissions", "AssignRoles"];
+
+  /**
+   * @see stoat.js server.havePermission method for permission strings.
+   * @param {string} permission
+   * @returns {boolean}
+   */
+  havePermission(permission) {
+    if (!this.isGroup) {
+      return this.server.havePermission(permission);
+    }
+    if (this.invalidGroupPerms.includes(permission)) return false;
+    if (this.ownerPerms.includes(permission)) return this.channel.ownerId === this.handler.client.user.id;
+    return this.channel.havePermission(permission);
+  }
+
+  /** @type {Channel[]} */
+  get channels() {
+    return (this.isGroup) ? [this.wrappedChannel] : this.server.channels.map(c => this.handler.getChannel(c.id));
+  }
+
+  members = null;
+
+  /**
+   * @param {string} id
+   * @returns {StoatUser}
+   */
+  async fetchMember(id) {
+    if (!this.isGroup) return this.server.fetchMember(id);
+    if (!this.members) this.members = await this.channel.fetchMembers();
+    return this.members.find(u => u.id === id);
+  }
+}
+
 export class Channel {
   /**
    * The actual underlying stoat.js channel instance
@@ -540,7 +679,16 @@ export class Channel {
 
   /** @type {Server} */
   get server() {
-    return this.channel.server;
+    console.log(this.channel.serverId, "test", this.channel.serverId || this.channel.id);
+    return this.handler.getServer(this.channel.serverId || this.channel.id);
+  }
+  /** @type {boolean} */
+  get isGroup() {
+    return this.channel.type === "Group";
+  }
+  /** @type {string} */
+  get serverId() {
+    return (this.isGroup) ? this.id : this.server.id;
   }
   /** @type {boolean} */
   get isVoice() {
@@ -632,9 +780,13 @@ export class Message {
   get channel() {
     return this.handler.getChannel(this.message.channel.id);
   }
-  /** @type {Server} */
+  /** @type {Server | undefined */
   get server() {
-    return this.message.server;
+    return this.handler.getServer(this.message.server?.id);
+  }
+  /** @type {string} */
+  get serverId() {
+    return (this.message.channel.type === "Group") ? this.channel.id : this.server.id;
   }
 
   /**

@@ -44,9 +44,9 @@ export class Remix {
 
     commands.setPrefixManager(new PrefixManager(settings));
     commands.onPing = (msg) => {
-      msg.replyEmbed(this.handler.format("My prefix in this server is `$prefix`\n\nRun `$prefix$helpCmd` to get started!", msg.message.server.id), false, {
-        icon_url: (msg.channel.channel.server.icon) ? "https://autumn.revolt.chat/icons/" + msg.channel.channel.server.icon.id : null,
-        title: msg.channel.channel.server.name
+      msg.replyEmbed(this.handler.format("My prefix in this server is `$prefix`\n\nRun `$prefix$helpCmd` to get started!", msg.serverId), false, {
+        icon_url: (msg.channel.server.icon) ? "https://autumn.revolt.chat/icons/" + msg.channel.server.icon.id : null,
+        title: msg.channel.server.name
       });
     }
 
