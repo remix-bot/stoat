@@ -126,7 +126,7 @@ export class Remix {
   }
 
   getSettings(message) {
-    const serverId = message.channel.channel.serverId;
+    const serverId = message.channel.serverId;
     return this.settingsMgr.getServer(serverId);
   }
   /**

@@ -108,6 +108,8 @@ export class MySqlSettingsManager extends SettingsManager {
   guilds = new Map();
   descriptions = {};
   defaults = {};
+  // list of ids of servers that have been stored to the db at least once
+  initialised = new Set();
 
   serverConfig = null;
 
@@ -154,6 +156,7 @@ export class MySqlSettingsManager extends SettingsManager {
       server.deserialize(JSON.parse(r.data));
       server.checkDefaults(this.defaults);
       this.guilds.set(server.id, server);
+      this.initialised.add(server.id)
     });
 
     this.emit("ready");
@@ -197,7 +200,8 @@ export class MySqlSettingsManager extends SettingsManager {
     }
     const s = this.guilds.get(server.id);
     s.data[key] = server.data[key];
-    this.remoteUpdate(server, key);
+    if (this.initialised.has(server.id)) return this.remoteUpdate(server, key);
+    this.create(server.id, server);
   }
   isOption(key) {
     return key in this.defaults;
