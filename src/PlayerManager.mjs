@@ -42,6 +42,7 @@ export class PlayerManager {
 
     this.commands.messages.onMessage((message) => {
       if (!message.isSystemMessage) return;
+      if (!message.server.isGroup) return;
       const sys = message.systemMessage;
       if (sys.type !== "call_started") return;
       if (this.playerMap.has(message.serverId)) return;
