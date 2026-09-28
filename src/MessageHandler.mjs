@@ -550,16 +550,40 @@ export class MessageHandler {
 }
 
 export class Member {
-  // TODO: handle permissions inside groups
+  /** @type {ServerMember} */
   member;
+  /**
+   * Set if this is a Group Member
+   * @type {StoatUser}
+   */
+  user;
+  /** @type {Server} */
+  server;
 
-  constructor(medium, handler, groupMember=false) {
+  /**
+   * @param {ServerMember | User} medium
+   * @param {Server} server
+   * @param {MessageHandler} handler
+   */
+  constructor(medium, server, handler) {
     this.handler = handler;
-    this.groupMember = groupMember;
+    this.server = server;
+    if (server.isGroup) {
+      this.user = medium;
+    } else {
+      this.member = medium;
+    }
+  }
+  // TODO: expand accessors
+  get user() {
+    return this.user || this.member.user;
   }
 
   hasPermission(permission) {
-
+    if (!this.server.isGroup) return this.member.hasPermission(permission);
+    if (this.server.invalidGroupPerms.includes(permission)) return false;
+    if (this.server.ownerPerms.includes(permission)) return this.server.channel.ownerId === this.user.id;
+    return true; // TODO: does this make sense / Fix this possibly?
   }
 }
 
@@ -679,7 +703,6 @@ export class Channel {
 
   /** @type {Server} */
   get server() {
-    console.log(this.channel.serverId, "test", this.channel.serverId || this.channel.id);
     return this.handler.getServer(this.channel.serverId || this.channel.id);
   }
   /** @type {boolean} */
@@ -772,17 +795,18 @@ export class Message {
   get authorId() {
     return this.message.authorId;
   }
-  /** @type {ServerMember} */
+  /** @type {Member} */
   get member() {
-    return this.message.member;
+    if (this.server.isGroup) return new Member(this.message.author, this.server, this.handler);
+    return new Member(this.message.member, this.server, this.handler);
   }
   /** @type {Channel} */
   get channel() {
     return this.handler.getChannel(this.message.channel.id);
   }
-  /** @type {Server | undefined */
+  /** @type {Server} */
   get server() {
-    return this.handler.getServer(this.message.server?.id);
+    return this.handler.getServer(this.serverId);
   }
   /** @type {string} */
   get serverId() {
