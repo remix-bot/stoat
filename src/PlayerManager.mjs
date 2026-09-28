@@ -39,6 +39,14 @@ export class PlayerManager {
     this.dashboard = dashboard;
     this.config = config.config;
     this.playerConfig = config.player;
+
+    this.commands.messages.onMessage((message) => {
+      if (!message.isSystemMessage) return;
+      const sys = message.systemMessage;
+      if (sys.type !== "call_started") return;
+      if (this.playerMap.has(message.serverId)) return;
+      this.initPlayer(message, message.serverId);
+    });
   }
 
   /**
@@ -124,6 +132,7 @@ export class PlayerManager {
    */
   checkVoiceChannels(message) {
     if (!message) return null;
+    if (message.server.isGroup) return message.server.id;
     const user = message.authorId;
     var id = null;
     message.channel.server.channels.forEach(c => {
@@ -147,7 +156,7 @@ export class PlayerManager {
     }
     const user = this.revoice.getUser(message.author.id).user;
     var cid = user?.connectedTo;
-    // TODO: enable joining dms
+    // Direct Messages count as "groups"
     if (message.server.isGroup) cid = message.channel.id;
     if (!cid) cid = this.checkVoiceChannels(message);
     var player = this.playerMap.get(cid);

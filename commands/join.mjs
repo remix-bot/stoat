@@ -23,6 +23,6 @@ export const command = new CommandBuilder()
       .setRequired(true)
   );
 export const run = function(message, data) {
-  const cid = data.getById("cid").value || this.checkVoiceChannels(message);
+  const cid = data.getById("cid").value || this.players.checkVoiceChannels(message);
   this.players.initPlayer(message, cid);
 }

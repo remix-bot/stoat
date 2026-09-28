@@ -165,7 +165,7 @@ export class MessageHandler {
     if (s) return new Server(s, this, false);
     const c = this.client.channels.get(id);
     if (!c) return null;
-    if (c.type !== "Group") return null;
+    if (!["Group", "DirectMessage"].includes(c.type)) return null;
     return new Server(c, this, true);
   }
   /**
@@ -707,7 +707,7 @@ export class Channel {
   }
   /** @type {boolean} */
   get isGroup() {
-    return this.channel.type === "Group";
+    return ["Group", "DirectMessage"].includes(this.channel.type);
   }
   /** @type {string} */
   get serverId() {
@@ -810,7 +810,13 @@ export class Message {
   }
   /** @type {string} */
   get serverId() {
-    return (this.message.channel.type === "Group") ? this.message.channel.id : this.message.server.id;
+    return (["Group", "DirectMessage"].includes(this.message.channel.type)) ? this.message.channel.id : this.message.server.id;
+  }
+  get isSystemMessage() {
+    return !!this.message.systemMessage;
+  }
+  get systemMessage() {
+    return this.message.systemMessage;
   }
 
   /**
