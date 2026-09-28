@@ -721,6 +721,9 @@ export class Channel {
   get id() {
     return this.channel.id;
   }
+  get voiceParticipants() {
+    return this.channel.voiceParticipants;
+  }
   /**
    * @param {MessageListener} callback
    * @param {StoatUser} user

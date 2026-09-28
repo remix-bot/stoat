@@ -323,9 +323,7 @@ export class Dashboard {
       category: com.category,
       examples: com.examples,
       usage: commands.helpHandler.commandUsage(com, {
-        message: {
-          server: { id: "01FZ62C8WFS3HBEN5QTN8RZRQG" }
-        }
+        server: { id: "01FZ62C8WFS3HBEN5QTN8RZRQG" }
       }),
       // TODO: add requirements
       options: com.options.map(o => Dashboard.convertOption(o)),
