@@ -810,7 +810,7 @@ export class Message {
   }
   /** @type {string} */
   get serverId() {
-    return (this.message.channel.type === "Group") ? this.channel.id : this.server.id;
+    return (this.message.channel.type === "Group") ? this.message.channel.id : this.message.server.id;
   }
 
   /**
