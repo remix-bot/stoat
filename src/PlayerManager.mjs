@@ -128,7 +128,7 @@ export class PlayerManager {
     var id = null;
     message.channel.server.channels.forEach(c => {
       if (!c.isVoice) return;
-      if (!c.voiceParticipants.has(user)) return;
+      if (!c.voiceParticipants?.has(user)) return;
       id = c.id;
     });
     return id;
@@ -148,7 +148,7 @@ export class PlayerManager {
     const user = this.revoice.getUser(message.author.id).user;
     var cid = user?.connectedTo;
     // TODO: enable joining dms
-    if (message.channel.type === "Group") cid = message.channel.id;
+    if (message.server.isGroup) cid = message.channel.id;
     if (!cid) cid = this.checkVoiceChannels(message);
     var player = this.playerMap.get(cid);
     if (!player && cid && promptJoin) {

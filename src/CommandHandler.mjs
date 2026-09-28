@@ -795,7 +795,7 @@ export class CommandHandler extends EventEmitter {
         return this.onPing(msg);
       }
     }
-    const prefix = this.getPrefix(msg.channel.channel.serverId);
+    const prefix = this.getPrefix(msg.channel.serverId);
     const ping = `<@${this.client.user.id}>`;
     if (!(msg.content.startsWith(prefix) || msg.content.replace(/\u00A0/gi, " ").startsWith(ping))) return;
     // TODO: permission checking

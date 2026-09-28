@@ -650,10 +650,17 @@ export default class Player extends EventEmitter {
    * @returns {Promise<undefined>} fulfills when joined
    */
   join(channel) {
-    return new Promise(res => {
+    return new Promise((res, rej) => {
       this.voice.join(channel, this.LEAVE_TIMEOUT).then(connection => {
         this.connection = connection;
-        connection.once("join", res);
+        connection.once("connectionError", (...e) => {
+          this.leaving = true;
+          rej(...e);
+        });
+        connection.once("join", () => {
+          connection.off("connectionError", rej);
+          res();
+        });
         var roomFetched = false;
         connection.on("roomfetched", () => {
           if (roomFetched) return;
@@ -673,7 +680,7 @@ export default class Player extends EventEmitter {
           }
           if (state == Revoice.State.IDLE) this.playNext();
         });
-      });
+      }).catch(rej);
     });
   }
   fetchResults(query, id, provider = "yt") { // TODO: implement pagination of further results
