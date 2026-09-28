@@ -517,7 +517,7 @@ export class HelpHandler {
     });
 
     const pages = new PageBuilder(contents)
-      .setForm(helpHandler.commands.format(form, msg.message.server.id))
+      .setForm(helpHandler.commands.format(form, msg.server.id))
       .setMaxLines(helpHandler.commandsPerPage);
 
     helpHandler.commands.messages.initPagination(pages, msg);
@@ -621,7 +621,7 @@ export class HelpHandler {
     content += "For example: `$prefix$helpCmd command subcommandName`";
     if (page) content += "\n\nTip: Turn pages by using `$prefix$helpCmd <page number>`"
 
-    return this.commands.format(content, msg.message.server.id);
+    return this.commands.format(content, msg.server.id);
   }
   /**
    *
@@ -639,9 +639,9 @@ export class HelpHandler {
    */
   commandUsage(cmd, msg) {
     if (cmd.subcommands.length > 0) {
-      return this.commands.format("$prefix" + cmd.command, msg.message.server.id) + " <" + cmd.subcommands.map(e => e.name).join(" | ") + "> [...]".trim();
+      return this.commands.format("$prefix" + cmd.command, msg.server.id) + " <" + cmd.subcommands.map(e => e.name).join(" | ") + "> [...]".trim();
     }
-    let options = this.commands.format("$prefix" + cmd.command, msg.message.server.id);
+    let options = this.commands.format("$prefix" + cmd.command, msg.server.id);
     cmd.options.forEach(o => {
       if (o.type === "text") return;
       if (o instanceof Flag)
@@ -661,7 +661,7 @@ export class HelpHandler {
     let content = `# ${HelpHandler.capitalise(command.name)}\n`;
     content += this.commandDescription(command, msg) + "\n\n";
     content += "#### Usage: \n💻 `" + this.commandUsage(command, msg) + "`\n\n";
-    if (command.examples.length > 0) content += "Example(s): \n- `" + command.examples.map(e => this.commands.format(e, msg.message.server.id)).join("`\n- `") + "`\n\n";
+    if (command.examples.length > 0) content += "Example(s): \n- `" + command.examples.map(e => this.commands.format(e, msg.server.id)).join("`\n- `") + "`\n\n";
     if (command.aliases.length > 1) {
       content += "#### Aliases: \n";
       command.aliases.forEach(alias => {
@@ -739,7 +739,7 @@ export class CommandHandler extends EventEmitter {
     this.helpCommand = "help";
 
     this.replyHandler = (message, msg) => {
-      msg.replyEmbed(this.format(message, msg.channel.channel.serverId));
+      msg.replyEmbed(this.format(message, msg.channel.serverId));
     }
 
     this.messages.onMessage(this.messageHandler.bind(this));
@@ -857,7 +857,7 @@ export class CommandHandler extends EventEmitter {
     if (cmd.requirements.length > 0 && !external) {
       if (!this.assertRequirements(cmd, msg)) return;
     }
-    if (previous === false) previous = this.format("$prefix" + cmd.name, msg.channel.channel.serverId);
+    if (previous === false) previous = this.format("$prefix" + cmd.name, msg.channel.serverId);
     if (!cmd) return console.warn("[CommandHandler.processCommand] Invalid case: `cmd` falsy.");
     if (!external) this.emit("command", { command: cmd, message: msg });
 
