@@ -580,7 +580,7 @@ export class Member {
   }
 
   hasPermission(permission) {
-    if (!this.server.isGroup) return this.member.hasPermission(permission);
+    if (!this.server.isGroup) return this.member.hasPermission(this.server.server, permission);
     if (this.server.invalidGroupPerms.includes(permission)) return false;
     if (this.server.ownerPerms.includes(permission)) return this.server.channel.ownerId === this.user.id;
     return true; // TODO: does this make sense / Fix this possibly?

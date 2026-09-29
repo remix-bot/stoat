@@ -1020,14 +1020,13 @@ export class CommandHandler extends EventEmitter {
    * @returns {boolean}
    */
   assertRequirements(cmd, msg) {
-    const server = msg.member.server;
     for (let i = 0; i < cmd.requirements.length; i++) {
       let req = cmd.requirements[i];
       if (req.ownerOnly && !this.owners.includes(msg.author.id)) return false;
       for (let j = 0; j < req.getPermissions().length; j++) {
         let p = req.getPermissions()[j];
         if (p === "Owner-only command") continue;
-        if (!msg.member.hasPermission(server, p) && !this.owners.includes(msg.author.id)) {
+        if (!msg.member.hasPermission(p) && !this.owners.includes(msg.author.id)) {
           this.replyHandler(req.permissionError, msg);
           return false;
         }
