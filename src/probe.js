@@ -11,7 +11,22 @@ module.exports = function(file) {
       chunks.push(d);
     });
     process.stdout.on("end", () => {
-      const data = JSON.parse(Buffer.concat(chunks).toString());
+      var data;
+      try {
+        data = JSON.parse(Buffer.concat(chunks).toString());
+      } catch (e) {
+        console.warn("JSON Error: ", e);
+        data = {
+          format: {
+            tags: {
+              album: "unknown",
+              title: "unknown",
+              artist: "unknown",
+            },
+            duration: 0
+          }
+        };
+      }
       res({
         album: data.format?.tags?.album,
         artist: data.format?.tags?.artist,
