@@ -1,6 +1,7 @@
 import { CommandBuilder } from "../src/CommandHandler.mjs";
 import Uploader from "revolt-uploader";
 import { Message } from "../src/MessageHandler.mjs";
+import { PermissionManager } from "../src/PermissionManager.mjs";
 
 export const command = new CommandBuilder()
   .setName("test")
@@ -28,6 +29,21 @@ export const command = new CommandBuilder()
 export const run = async function (msg, data) {
   const message = "Hi, how are you";
   const user = msg.author;
+  const mgr = new PermissionManager(this.client);
+  /*const perm = PermissionManager.customPermission((msg) => {
+    console.log(msg);
+    console.log("Validation inside");
+    return new Promise(r => {
+      setTimeout(r.bind(this, true), 1000);
+    });
+  }, "A permission");*/
+  const perm = PermissionManager.systemPermission("ManageServer");
+  perm.or(PermissionManager.customPermission((msg => {
+    console.log("user", msg.author.id);
+    return msg.author.id === "test";
+  }), "Is test?"));
+  console.log("Validation");
+  console.log("Result: ", await mgr.validate(msg, perm));
   console.log(await msg.channel.sendEmbedAsUser(message, user));
   msg.replyEmbed(`user: <@${data.get("user").value}>\nstring: ${data.get("test").value}\nchannel: <#${data.get("channel").value}>`);
   /*const uploader = new Uploader(this.client);

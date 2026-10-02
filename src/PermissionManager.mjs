@@ -1,10 +1,95 @@
 import { Client } from "revolt.js";
 import { Message } from "./MessageHandler.mjs";
 
-export class PermissionBuilder {
+export class CommandRequirement {
+  /**
+   * @callback VerificationHandler
+   * @param {Message} message
+   * @returns {Promise<boolean>}
+   */
+  /** @type {VerificationHandler} */
+  verify;
+  /** @type {string} */
+  error;
+
+  ownerOnly = false;
+
+  /** @type {CommandRequirement[]} */
+  required;
+  /** @type {CommandRequirement[]} */
+  fallbacks;
+
+  constructor() {
+    this.required = [];
+    this.fallbacks = [];
+
+    this.error = "You don't have the needed permissions to run this command!";
+  }
+
+  /**
+   * @param {boolean} bool
+   */
+  setOwnerOnly(bool) {
+    this.ownerOnly = bool;
+    return this;
+  }
+
+  /**
+   * Chain further requirements to this one. Equivalent to a logical AND: both requirements must be satisfied to be valid.
+   * Requirements will be evaluated minimally in order, i.e. the first negative result will stop the evaluation.
+   * @param {CommandRequirement} req
+   * @returns {CommandRequirement}
+   */
+  and(req) {
+    this.required.push(req);
+    return this;
+  }
+  /**
+   * Logical OR: If this requirement is not satisfied, at least one of the chained requirements suffices.
+   * Evaluated minimally in order.
+   * @param {CommandRequirement} req
+   * @returns {CommandRequirement}
+   */
+  or(req) {
+    //throw "Abstract class. Not implemented";
+    this.fallbacks.push(req);
+    return this;
+  }
+
+  /**
+   * Verifies this and all attached requirements in order:
+   *  If this requirement evaluates to `true`, all the required requirements (added by .and())
+   *  are evaluated in order of attachment. If any call fails, the evaluation stops and fallbacks are tried.
+   *
+   *  If during any of those previous steps any requirement failed, fallbacks are attempted.
+   *  All attached requirements are evauated in order, stopping at the first success.
+   *
+   * @param {Message} msg
+   */
+  async verifyRequirement(msg) {
+    var res = await this.verify(msg);
+    if ((this.required.length > 0) && res) {
+      for (const req of this.required) {
+        res = res && (await req.verify(msg));
+        if (!res) break;
+      }
+    }
+    if ((this.fallbacks.length > 0) && !res) {
+      for (const req of this.fallbacks) {
+        res = res || (await req.verify(msg));
+        if (res) break;
+      }
+    }
+    return res;
+  }
+}
+
+export class PermissionBuilder extends CommandRequirement {
   type = "system";
   /** @type {string} */
   permission;
+  /** @type {PermissionBuilder} */
+  fallback;
   /**
    * @callback VerificationHandler
    * @param {Message} message
@@ -15,8 +100,11 @@ export class PermissionBuilder {
   /**
    * @param {("system"|"custom")} [type]
    */
-  constructor(type="system") {
+  constructor(type = "system") {
+    super();
     this.type = type;
+
+    this.error = "You don't have the needed permissions to run this command!";
   }
   /**
    * @param {string} perm
@@ -47,6 +135,37 @@ export class PermissionBuilder {
     this.verify = handler;
     return this;
   }
+
+  /**
+   * Fallback permissions that are also authorised to perform this action.
+   * e.g.
+   *    `ManageServer` --> `Mod Role`
+   * A user with the ManageServer permissions is allowed to skip songs without a vote,
+   * but if a user doesn't have this permission, it has to own the "Mod Role".
+   *
+   * @param {PermissionBuilder} fallback
+   */
+  /*or(fallback) {
+    this.fallback = fallback;
+  }*/
+}
+
+export class RoleRequirement extends CommandRequirement {
+  /**
+   * @param {string} name
+   * @param {string} id
+   */
+  constructor(name, id) {
+    super();
+    this.setPermission(`Role: ${name}`);
+
+    this.id = id;
+    this.name = name;
+    this.setVerificationHandler((msg) => {
+      if (msg.server.isGroup) return false;
+      return msg.member.roles.includes(this.id);
+    });
+  }
 }
 
 export class PermissionManager {
@@ -66,8 +185,8 @@ export class PermissionManager {
    * @param {Message} msg
    * @param {PermissionBuilder} permission
    */
-  async getApproval(msg, permission) {
-    return await permission.verify(msg);
+  async validate(msg, permission) {
+    return await permission.verifyRequirement(msg);
   }
 
   /**
