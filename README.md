@@ -112,4 +112,7 @@ If you have any questions or would like to talk with other Remix users you can j
 
 ---
 
-&copy; 2026 Remix. All Rights Reserved.
+<p align="center">
+  &copy; 2026 Remix. Code licensed under the <a href="LICENSE">MIT License</a>.<br>
+  <em>The Remix name, logo, and branding are proprietary and may not be reused.</em>
+</p>
