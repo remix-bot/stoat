@@ -29,10 +29,6 @@
   "prefix": "your desired prefix (such as %)",
   "presenceInterval": null,
   "presenceContents": [],
-  "spotify": {
-    "clientId": "your spotify client id",
-    "clientSecret": "your spotify client secret"
-  },
   "comment-radio": {
     "message": "If you have radio stations you'd like to connect, add them to the array below. Radio stations must be rendered like following:",
     "station": {

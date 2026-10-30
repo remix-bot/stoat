@@ -63,7 +63,7 @@ If you're self-hosting Remix, please make it clear that it is **not the main ins
 -   Clone this repo (`git clone https://github.com/remix-bot/stoat.git)`)
 -   Install the dependencies (`npm install`)
 -   Set up a `config.json` file
-    - Rename the `config.example.json` file and fill out the missing values. You can generate spotify credentials [here](https://developer.spotify.com/)
+    - Rename the `config.example.json` file and fill out the missing values. Any audio- and search-related configuration has to be done inside your NodeLink instance.
     - Important: since [
 6cedcb9](https://github.com/remix-bot/stoat/commit/6cedcb9425d65171b79ce73fc91a9e890afc137a), a MySQL database is required.
       For setup instructions see [DB Setup](#setup-database).

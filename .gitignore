@@ -15,3 +15,4 @@ yt_auth.json
 .moonlink
 AGENTS.md
 remix.log
+.cache/

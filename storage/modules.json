@@ -6,7 +6,7 @@
   },
   {
     "name": "rbl-stats",
-    "index": "./rbl.js",
+    "index": "./src/modules/rbl.js",
     "enabled": false
   }
 ]
