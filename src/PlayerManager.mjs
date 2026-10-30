@@ -275,7 +275,6 @@ export class PlayerManager {
 
         // TODO: listen to joining/leaving users
         p.connection.on("userJoin", (user) => {
-          console.log("join", user);
           const u = Dashboard.convertUser(this.commands.client.users.get(user.id));
           this.dashboard.updatePlayer({
             type: "join",
@@ -286,7 +285,7 @@ export class PlayerManager {
             data: cid,
           }, u);
         });
-        p.connection.on("userleave", (user) => {
+        p.connection.on("userLeave", (user) => {
           const u = Dashboard.convertUser(this.commands.client.users.get(user.id));
           this.dashboard.updatePlayer({
             type: "leave",
@@ -314,7 +313,6 @@ export class PlayerManager {
         type: event,
         data: data
       };
-      console.log("emit", payload);
       this.dashboard.updatePlayer(payload, player);
     }
     const startPlayHandler = song => {
@@ -335,7 +333,7 @@ export class PlayerManager {
     }
     const playbackHandler = (playing) => {
       emit((playing) ? "resume" : "pause", {
-        elapsedTime: player.player.seconds * 1000
+        elapsedTime: (player.player?.seconds || 0) * 1000
       });
     }
     const censorSong = (song) => {
@@ -352,7 +350,6 @@ export class PlayerManager {
       const serialised = {
         type: e.type
       };
-      console.log("queue");
       switch (e.type) {
         case "add":
           serialised.data = {

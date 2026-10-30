@@ -1,18 +1,16 @@
 import { Utils } from "./Utils.mjs";
 import { EventEmitter } from "node:events";
 import VoiceImport from "revoice.js";
-const { MediaPlayer, Revoice } = VoiceImport;
+const { MediaPlayer, Revoice, VoiceConnection } = VoiceImport;
 import Uploader from "revolt-uploader";
 import meta from "./probe.js";
 import { Client } from "revolt.js";
-import { Worker } from "node:worker_threads";
 import https from "node:https";
 import { Manager, Node } from "moonlink.js";
-import path from "node:path";
 import axios from "axios";
 import { PassThrough } from "stream";
 import { Channel } from "./MessageHandler.mjs";
-import { Readable, Stream } from "node:stream";
+import { TrackResolver } from "./audio/TrackResolver.mjs";
 
 /**
  * @typedef {Object} Video
@@ -57,7 +55,7 @@ export class Queue extends EventEmitter {
     return this.data.length === 0;
   }
   /**
-   * @returns {string}
+   * @returns {number}
    */
   size() {
     return this.data.length;
@@ -250,25 +248,30 @@ export default class Player extends EventEmitter {
       });
       this.nodelink.init("648200414054842368");
     }
+
+    this.resolver = new TrackResolver(this.nodelink, () => this.getNode());
   }
 
-  workerJob(jobId, data, onMessage = null, msg = null) {
-    const __dirname = import.meta.dirname;
-    return new Promise((res, rej) => {
-      const worker = new Worker(path.join(__dirname, './worker.mjs'), { workerData: { jobId, data } });
-      worker.on("message", (data) => {
-        data = JSON.parse(data);
-        if (data.event == "error") {
-          rej(data.data);
-        } else if (data.event == "message" && (msg || onMessage)) {
-          if (msg) this.updateHandler(data.data, msg);
-          if (onMessage) onMessage(data.data);
-        } else if (data.event == "finished") {
-          res(data.data);
-        }
-      });
-      worker.on("exit", (code) => { if (code !== 0) rej(code) });
-    });
+  /**
+   * Executes search and track resolution asynchronously using the shared TrackResolver
+   * Replaces the functionality of the deprecated `worker.mjs`
+   */
+  async workerJob(jobId, data, onMessage = null, msg = null) {
+    const notify = (text) => {
+      if (msg && this.updateHandler) this.updateHandler(text, msg);
+      if (onMessage) onMessage(text);
+    };
+
+    switch (jobId) {
+      case "search":
+        return await this.resolver.getVideoData(data.query || data, "ytm", notify);
+      case "generalQuery":
+        return await this.resolver.getVideoData(data.query, data.provider, notify);
+      case "searchResults":
+        return await this.resolver.getResults(data.query, data.resultCount || this.resultLimit, data.provider);
+      default:
+        throw new Error(`Invalid jobId: ${jobId}`);
+    }
   }
 
   isEmpty() {
@@ -285,7 +288,7 @@ export default class Player extends EventEmitter {
   }
   /** @type {boolean} */
   get paused() {
-    return this.player?.playbackPaused || false;
+    return this.player?.paused || this.player?.playbackPaused || false;
   }
   pause() {
     if (!this.player || !this.queue.getCurrent()) return ":negative_squared_cross_mark: There's nothing playing at the moment!";
@@ -295,7 +298,7 @@ export default class Player extends EventEmitter {
   }
   resume() {
     if (!this.player || !this.queue.getCurrent()) return ":negative_squared_cross_mark: There's nothing playing at the moment!";
-    if (!this.player.paused) return ":negative_squared_cross_mark: Not paused. To pause, use the `pause` command!";
+    if (!this.paused) return ":negative_squared_cross_mark: Not paused. To pause, use the `pause` command!";
     this.player.resume();
     this.emit("playback", true);
   }
@@ -423,7 +426,7 @@ export default class Player extends EventEmitter {
     let loopqueue = (this.queue.loop) ? "**enabled**" : "**disabled**";
     let songloop = (this.queue.songLoop) ? "**enabled**" : "**disabled**";
     const vol = ((this.connection?.preferredVolume || 1) * 100) + "%";
-    const paused = !!this.connection?.media.paused; // TODO: integrate
+    const paused = !!this.connection?.media?.paused; // TODO: integrate
     if (current.type === "radio") {
       const data = await meta(current.url);
       return { msg: "Streaming **[" + current.title + "](" + current.author.url + ")**\n\n" + current.description + " \n\n### Current song: " + data.title + "\n\nVolume: " + vol + "\n\nQueue loop: " + loopqueue + "\nSong loop: " + songloop, image: await this.uploadThumbnail() }
@@ -435,13 +438,12 @@ export default class Player extends EventEmitter {
   }
   uploadThumbnail() {
     return new Promise((res) => {
-      //return res();
       const current = this.queue.getCurrent();
       if (!current) return res(null);
       if (!current.thumbnail) return res(null);
       https.get(current.thumbnail, async (response) => {
         res(await this.upload.upload(response, current.title));
-      });
+      }).on("error", () => res(null));
     });
   }
   getThumbnail() {
@@ -467,6 +469,27 @@ export default class Player extends EventEmitter {
 
     this.emit("volume", v);
     return "Volume changed to `" + (v * 100) + "%`.";
+  }
+  /**
+   * Apply a real-time DSP filter preset ("bassboost", "vocal", "treble", "lofi", "off") or custom biquad bands.
+   * TODO: add to commands
+   * @param {string|Array<Object>|null} filterConfig
+   */
+  setFilter(filterConfig) {
+    const connection = this.voice?.getVoiceConnection(this.connection?.channelId);
+    if (!connection || !connection.media) return "Not connected!";
+    connection.media.setFilter(filterConfig);
+    return `Filter updated to \`${typeof filterConfig === "string" ? filterConfig : "custom"}\`.`;
+  }
+  /**
+   * Play an overlay audio stream (e.g. Tuna soundboard clip or TTS) mixed in-memory onto the active track using revoice.
+   * @param {import("stream").Readable|string|Buffer} source
+   * @param {Object} [options={}] See revoice.js documentation for options
+   */
+  playOverlay(source, options = {}) {
+    let prep = this.preparePlay();
+    if (prep) return prep;
+    return this.connection.media.playOverlay(source, options);
   }
   /**
    * @param {Video} s
@@ -497,11 +520,10 @@ export default class Player extends EventEmitter {
    * @returns {string}
    */
   getCurrentElapsedDuration() {
-    return this.getDuration(this.player.seconds * 1000);
+    return this.getDuration((this.player?.seconds || 0) * 1000);
   }
 
   // functional core
-  // TODO: potentially touch up the following parts as well
   async streamResource(url) {
     var response;
     try {
@@ -510,17 +532,23 @@ export default class Player extends EventEmitter {
       console.error("Axios error streaming resource: ", e);
       return null;
     }
+    // Bounded 64KB PassThrough with proper backpressure propagation instead of 10MB heap buffer
     const buffered = new PassThrough({
-      highWaterMark: 10 * 1024 * 1024,
+      highWaterMark: 64 * 1024,
     });
     response.data.pipe(buffered);
     response.data.on("error", (err) => {
       buffered.destroy(err);
     });
+    buffered.on("close", () => {
+      if (!response.data.destroyed) {
+        response.data.destroy();
+      }
+    });
     return buffered;
   }
   /**
-   *Waits for a NodeLink node to become ready
+   * Waits for a NodeLink node to become ready
    * @returns {Promise<undefined>}
    */
   async waitReady() {
@@ -553,16 +581,22 @@ export default class Player extends EventEmitter {
     }
 
     const connection = this.voice.getVoiceConnection(this.connection.channelId);
-    var streamUrl;
-    var directStream;
+    if (!connection) {
+      this.emit("stopplay");
+      return false;
+    }
+    this.preparePlay();
+
+    var streamUrl = null;
+    var directStream = null;
     if (songData.type == "external" || songData.type == "radio") {
       streamUrl = songData.url;
     } else if (songData.encoded) {
       try {
         const node = await this.getNode();
-        const load = (await node.loadDirectStream({
+        const load = await node.loadDirectStream({
           encoded: songData.encoded
-        }, 100, 0));
+        }, 100, 0);
         streamUrl = null;
         directStream = load.stream;
       } catch (e) {
@@ -570,21 +604,36 @@ export default class Player extends EventEmitter {
       }
     }
 
-    const stream = (streamUrl) ? await this.streamResource(streamUrl) : directStream;
+    // radio/external URLs are now handled by revoice.
+    // Revoice should use an internal FFmpeg demuxer to stream the source from optimised worker threads
+    const streamSource = streamUrl ? streamUrl : directStream;
 
-    if (!stream) {
+    if (!streamSource) {
       this.emit("stopplay");
       return false;
     }
 
-    connection.media.once("startplay", () => this.emit("streamStartPlay", Date.now()));
-    connection.media.playStream(stream, (!streamUrl) ? [
-            `-f s16le`,
-            `-ar 48000`,
-            `-ac 2`
-          ] : undefined);
-    stream.once("data", () => this.startedPlaying = Date.now());
-    if (this.connection.preferredVolume) connection.media.setVolume(this.connection.preferredVolume);
+    connection.media.once("startplay", () => {
+      this.startedPlaying = Date.now();
+      this.emit("streamStartPlay", this.startedPlaying);
+    });
+
+    // When `directStream` is used, `-f s16le -ar 48000 -ac 2` triggers Revoice's zero-FFmpeg fast path
+    connection.media.playStream(
+      streamSource,
+      !streamUrl
+        ? [`-f s16le`, `-ar 48000`, `-ac 2`]
+        : undefined
+    );
+
+    if (directStream && typeof directStream.once === "function") {
+      directStream.once("data", () => {
+        if (!this.startedPlaying) this.startedPlaying = Date.now();
+      });
+    }
+    if (this.connection.preferredVolume) {
+      connection.media.setVolume(this.connection.preferredVolume);
+    }
     this.announceSong(songData);
     this.emit("startplay", songData);
   }
@@ -610,11 +659,11 @@ export default class Player extends EventEmitter {
     return true;
   }
   destroy() {
-    if (!this.connection.destroy) return;
+    if (!this.connection?.destroy) return;
     return this.connection?.destroy();
   }
   /**
-   * Gracefull shutdown and export for later reinstatement.
+   * Graceful shutdown and export for later reinstatement.
    * @returns {{channel: string, messagingChannel: string, queue:{current: SerialisedVideo, queued: SerialisedVideo[]}}}
    */
   close() {
@@ -631,7 +680,7 @@ export default class Player extends EventEmitter {
     data.queue.current = (data.queue.current) ? {
       encoded: data.queue.current.encoded,
       id: data.queue.current.videoId,
-      restart: Math.max(this.player.seconds * 1000 - 1000, 0) // restart one second earlier
+      restart: Math.max((this.player?.seconds || 0) * 1000 - 1000, 0) // restart one second earlier
     } : null;
     this.leave();
     this.playerStatus = "online";
@@ -668,10 +717,9 @@ export default class Player extends EventEmitter {
           this.emit("roomfetched", connection.users)
         });
         this.connection.on("state", (state) => {
-          console.log(state);
           if (state == Revoice.State.IDLE && !roomFetched) {
+            roomFetched = true;
             this.emit("roomfetched", connection.users);
-            // TODO: set roomFetched to true?
           }
           this.state = state;
           if (state == Revoice.State.OFFLINE && !this.leaving) {
@@ -734,7 +782,7 @@ export default class Player extends EventEmitter {
         });
       } else if (data.type == "video") {
         this.addToQueue(data.data, top);
-      } else {
+      } else if (data !== false) {
         console.log("Unknown case: ", data.type, data);
       }
       if (!this.queue.getCurrent()) this.playNext();
