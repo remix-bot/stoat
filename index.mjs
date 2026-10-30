@@ -12,6 +12,7 @@ import { Manager } from "moonlink.js";
 import { Dashboard } from "./src/dashboard/Dashboard.mjs";
 import { categories } from "./src/helpCatalog.mjs";
 import { LastFMManager } from "./src/LastFMManager.mjs";
+import Tuna from "./src/audio/Tuna.js";
 
 export class Remix {
   constructor() {
@@ -97,6 +98,10 @@ export class Remix {
     this.nodelink.init("648200414054842369").then(() => {
       console.log("NodeLink initialised");
     });
+
+    if (this.config.tuna) {
+      this.tuna = new Tuna({ key: this.config.tuna.key });
+    }
 
     this.playerContext = {
       voice: this.revoice,

@@ -1,4 +1,4 @@
-const { CommandBuilder } = require("../Commands.js");
+const { CommandBuilder } = require("../src/CommandHandler.mjs");
 
 module.exports = {
   command: new CommandBuilder()
